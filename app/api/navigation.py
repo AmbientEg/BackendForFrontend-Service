@@ -9,12 +9,11 @@ Endpoints:
 """
 
 import logging
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, Field
 
-from app.adapters.navigation_adapter import NavigationAdapter
 from app.orchestration.navigation_orchestrator import NavigationOrchestrator
 
 logger = logging.getLogger(__name__)
@@ -25,14 +24,20 @@ router = APIRouter(prefix="/navigation", tags=["navigation"])
 # -------- Request/Response Models --------
 class LocationFromModel(BaseModel):
     """Source location (coordinates or POI)."""
-    floor_id: str = Field(..., description="Floor UUID")
+    floor_id: str = Field(..., alias="floorId", description="Floor UUID")
     lat: float = Field(..., description="Latitude")
     lng: float = Field(..., description="Longitude")
+
+    class Config:
+        populate_by_name = True
 
 
 class LocationToModel(BaseModel):
     """Destination location (POI only)."""
-    poi_id: str = Field(..., description="POI UUID")
+    poi_id: str = Field(..., alias="poiId", description="POI UUID")
+
+    class Config:
+        populate_by_name = True
 
 
 class RouteOptionsModel(BaseModel):
@@ -91,23 +96,23 @@ async def get_orchestrator() -> NavigationOrchestrator:
 
 
 # -------- Endpoints --------
-@router.post("/route", response_model=CalculateRouteResponse, summary="Calculate Route")
+@router.post("/route", summary="Calculate Route")
 async def calculate_route(
     request: CalculateRouteRequest,
     orchestrator: NavigationOrchestrator = Depends(get_orchestrator),
-) -> CalculateRouteResponse:
+) -> Dict[str, Any]:
     """Calculate route between locations.
 
     Request body (POI to POI):
     ```json
     {
       "from": {
-        "floor_id": "f5bb8f0d-ea83-4f30-864c-8d3c738f36f5",
+                "floorId": "f5bb8f0d-ea83-4f30-864c-8d3c738f36f5",
         "lat": 30.02771092227816,
         "lng": 31.201406546960303
       },
       "to": {
-        "poi_id": "694b1b35-754e-4086-a8f6-11290edfa56b"
+                "poiId": "694b1b35-754e-4086-a8f6-11290edfa56b"
       },
       "options": {
         "accessible": true
@@ -115,12 +120,7 @@ async def calculate_route(
     }
     ```
 
-    Returns mobile-optimized route with:
-    - distance in meters
-    - estimated duration in seconds
-    - turn-by-turn navigation steps
-    - coordinate polyline (Mapbox format)
-    - waypoints along route
+    Phase-1 behavior: returns raw navigation-service response.
     """
     try:
         from_loc = request.from_location
@@ -136,19 +136,15 @@ async def calculate_route(
             accessible=opts.accessible,
         )
 
-        # Adapt to mobile format
-        adapted = NavigationAdapter.adapt_route(service_response)
-
         logger.info(
             "Route calculated",
             extra={
                 "from_floor": from_loc.floor_id,
                 "to_poi": to_loc.poi_id,
-                "distance": adapted.get("distance_meters"),
             },
         )
 
-        return CalculateRouteResponse(**adapted)
+        return service_response
 
     except ValueError as e:
         logger.warning(f"Invalid route request: {e}")

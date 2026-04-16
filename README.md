@@ -16,6 +16,76 @@ It is:
 
 ---
 
+# 0. RESILIENCE PATTERNS (PyResilience)
+
+This BFF implements production-grade resilience patterns using **[`pyresilience`](https://pypi.org/project/pyresilience/)**.
+
+## Implemented Patterns
+
+### 1. **Retry Logic**
+- **Max Attempts**: 3
+- **Delay**: 1 second between retries
+- **Purpose**: Handle transient failures (network hiccups, temporary service issues)
+
+### 2. **Timeout Protection**
+- **Timeout**: 10 seconds per request
+- **Purpose**: Prevent hanging requests from exhausting resources
+
+### 3. **Circuit Breaker**
+- **Failure Threshold**: 5 consecutive failures
+- **Recovery Timeout**: 60 seconds
+- **Success Threshold**: 2 successes to close circuit
+- **States**:
+  - 🟢 **Closed** (normal operation): Requests pass through
+  - 🔴 **Open** (circuit broken): Requests fail fast without calling service
+  - 🟡 **Half-Open** (recovery): Limited requests allowed to test if service recovered
+- **Purpose**: Prevent cascading failures and protect downstream service
+
+## Usage in Navigation Client
+
+All calls to the navigation service are automatically protected:
+
+```python
+@async_resilient(
+    retry=RetryConfig(max_attempts=3, delay=1.0),
+    timeout=TimeoutConfig(seconds=10),
+    circuit_breaker=CircuitBreakerConfig(
+        failure_threshold=5,
+        recovery_timeout=60,
+        success_threshold=2,
+    ),
+)
+async def _request(self, method: str, path: str, ...) -> Dict[str, Any]:
+    # All calls through here are resilient
+    return await self._client.request(...)
+```
+
+## Monitoring Resilience Status
+
+Check circuit breaker status via:
+
+```python
+from app.clients.navigation_client import navigation_client
+
+status = navigation_client.get_resilience_status()
+# Returns: {
+#     "circuit_breaker_state": "closed",
+#     "consecutive_failures": 0,
+#     "feature": "pyresilience"
+# }
+```
+
+## Benefits
+
+| Issue | Solution |
+|-------|----------|
+| Transient failures | Automatic retry with exponential backoff |
+| Slow/hanging requests | Timeout after 10s |
+| Cascading failures | Circuit breaker prevents hammering broken service |
+| Resource exhaustion | Fail-fast when circuit opens reduces load |
+
+---
+
 # 1. CORE BFF ARCHITECTURE
 
 ## 1. Orchestrator (MOST IMPORTANT)

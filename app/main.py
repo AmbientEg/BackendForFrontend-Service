@@ -13,6 +13,11 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from app.cache.redis_client import RedisClient
 from app.clients.navigation_client import NavigationClient
 from app.api import navigation as nav_router
+from app.api import admin as admin_router
+from dotenv import load_dotenv
+
+
+load_dotenv()
 
 
 IS_PRODUCTION = os.getenv("ENV", "development").lower() == "production"
@@ -113,6 +118,9 @@ app = FastAPI(
 
 # Mount navigation router
 app.include_router(nav_router.router, prefix="/api")
+
+# Mount admin router
+app.include_router(admin_router.router, prefix="/api")
 
 
 # Request logging middleware
