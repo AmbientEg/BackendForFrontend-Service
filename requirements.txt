@@ -6,4 +6,3 @@ pydantic-settings==2.10.1
 mangum==0.19.0
 PyJWT==2.10.1
 redis==5.2.1
-pyresilience==0.3.2

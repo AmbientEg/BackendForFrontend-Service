@@ -108,18 +108,20 @@ class NavigationClient:
         self,
         poi_id: str,
         payload: Dict[str, Any],
-        bearer_token: str,
+        authorization: Optional[str] = None,
     ) -> Dict[str, Any]:
+        headers = {"Authorization": authorization} if authorization else None
         return await self._request(
             "PUT",
             f"/api/admin/pois/{poi_id}",
             json=payload,
-            headers={"Authorization": f"Bearer {bearer_token}"},
+            headers=headers,
         )
 
-    async def delete_poi(self, poi_id: str, bearer_token: str) -> Dict[str, Any]:
+    async def delete_poi(self, poi_id: str, authorization: Optional[str] = None) -> Dict[str, Any]:
+        headers = {"Authorization": authorization} if authorization else None
         return await self._request(
             "DELETE",
             f"/api/admin/pois/{poi_id}",
-            headers={"Authorization": f"Bearer {bearer_token}"},
+            headers=headers,
         )
