@@ -12,6 +12,7 @@ from pyresilience import BulkheadFullError, CircuitOpenError, ResilienceTimeoutE
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app.cache.redis_client import RedisClient
+from app.clients.nav_client_admin import NavigationAdminClient
 from app.clients.navigation_client import NavigationClient
 from app.api import navigation as nav_router
 from app.api import admin as admin_router
@@ -53,6 +54,7 @@ logger = setup_logging()
 # Global Redis client instance
 redis_client: RedisClient = None
 navigation_client: NavigationClient = None
+navigation_admin_client: NavigationAdminClient = None
 
 # ----------------------------------------------------
 # Lifespan for Startup & Shutdown
@@ -61,7 +63,7 @@ navigation_client: NavigationClient = None
 async def lifespan(app: FastAPI):
     """Initialize redis and AI services on startup, cleanup on shutdown"""
     try:
-        global redis_client, navigation_client
+        global redis_client, navigation_client, navigation_admin_client
         
         # Initialize Redis client
         redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
@@ -72,6 +74,9 @@ async def lifespan(app: FastAPI):
         navigation_base_url = os.getenv("NAVIGATION_SERVICE_URL", "http://navigation-service:8000")
         navigation_client = NavigationClient(base_url=navigation_base_url)
         logger.info(f"Navigation client initialized: {navigation_base_url}")
+
+        navigation_admin_client = NavigationAdminClient(base_url=navigation_base_url)
+        logger.info(f"Navigation admin client initialized: {navigation_base_url}")
         
         logger.info("Application startup completed")
         yield
@@ -85,6 +90,8 @@ async def lifespan(app: FastAPI):
         try:
             if navigation_client:
                 await navigation_client.close()
+            if navigation_admin_client:
+                await navigation_admin_client.close()
             if redis_client:
                 await redis_client.close()
             logger.info("Connections closed")

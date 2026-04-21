@@ -11,27 +11,27 @@ from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException
 
-from app.clients.navigation_client import NavigationClient
+from app.clients.nav_client_admin import NavigationAdminClient
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 
-async def get_navigation_client() -> NavigationClient:
-	"""Resolve the shared navigation client from app state without circular imports."""
-	from app.main import navigation_client
+async def get_navigation_admin_client() -> NavigationAdminClient:
+    """Resolve the shared admin navigation client from app state without circular imports."""
+    from app.main import navigation_admin_client
 
-	if not navigation_client:
-		raise HTTPException(status_code=503, detail="Service initialization failed")
+    if not navigation_admin_client:
+        raise HTTPException(status_code=503, detail="Service initialization failed")
 
-	return navigation_client
+    return navigation_admin_client
 
 
 @router.post("/buildings")
 async def create_building(
 	payload: Dict[str, Any],
-	client: NavigationClient = Depends(get_navigation_client),
+	client: NavigationAdminClient = Depends(get_navigation_admin_client),
 ) -> Dict[str, Any]:
 	return await client.create_building(payload)
 
@@ -39,7 +39,7 @@ async def create_building(
 @router.get("/buildings/{building_id}")
 async def get_building(
 	building_id: str,
-	client: NavigationClient = Depends(get_navigation_client),
+	client: NavigationAdminClient = Depends(get_navigation_admin_client),
 ) -> Dict[str, Any]:
 	return await client.get_building(building_id)
 
@@ -47,7 +47,7 @@ async def get_building(
 @router.get("/buildings/{building_id}/floors")
 async def get_building_floors(
 	building_id: str,
-	client: NavigationClient = Depends(get_navigation_client),
+	client: NavigationAdminClient = Depends(get_navigation_admin_client),
 ) -> Dict[str, Any]:
 	return await client.get_building_floors(building_id)
 
@@ -55,7 +55,7 @@ async def get_building_floors(
 @router.post("/floors")
 async def create_floor(
 	payload: Dict[str, Any],
-	client: NavigationClient = Depends(get_navigation_client),
+	client: NavigationAdminClient = Depends(get_navigation_admin_client),
 ) -> Dict[str, Any]:
 	return await client.create_floor(payload)
 
@@ -64,7 +64,7 @@ async def create_floor(
 async def update_floor(
 	floor_id: str,
 	payload: Dict[str, Any],
-	client: NavigationClient = Depends(get_navigation_client),
+	client: NavigationAdminClient = Depends(get_navigation_admin_client),
 ) -> Dict[str, Any]:
 	return await client.update_floor(floor_id, payload)
 
@@ -72,7 +72,7 @@ async def update_floor(
 @router.get("/floors/{floor_id}/map")
 async def get_floor_map(
 	floor_id: str,
-	client: NavigationClient = Depends(get_navigation_client),
+	client: NavigationAdminClient = Depends(get_navigation_admin_client),
 ) -> Dict[str, Any]:
 	return await client.get_floor_map(floor_id)
 
@@ -80,7 +80,7 @@ async def get_floor_map(
 @router.post("/graphs/rebuild/{building_id}")
 async def rebuild_graph_preview(
 	building_id: str,
-	client: NavigationClient = Depends(get_navigation_client),
+	client: NavigationAdminClient = Depends(get_navigation_admin_client),
 ) -> Dict[str, Any]:
 	return await client.rebuild_graph_preview(building_id)
 
@@ -88,7 +88,7 @@ async def rebuild_graph_preview(
 @router.post("/graphs/confirm/{building_id}")
 async def confirm_graph(
 	building_id: str,
-	client: NavigationClient = Depends(get_navigation_client),
+	client: NavigationAdminClient = Depends(get_navigation_admin_client),
 ) -> Dict[str, Any]:
 	return await client.confirm_graph(building_id)
 
@@ -96,7 +96,7 @@ async def confirm_graph(
 @router.post("/graphs/rollback/{building_id}")
 async def rollback_graph(
 	building_id: str,
-	client: NavigationClient = Depends(get_navigation_client),
+	client: NavigationAdminClient = Depends(get_navigation_admin_client),
 ) -> Dict[str, Any]:
 	return await client.rollback_graph(building_id)
 
@@ -106,7 +106,7 @@ async def update_poi(
 	poi_id: str,
 	payload: Dict[str, Any],
 	authorization: Optional[str] = Header(default=None),
-	client: NavigationClient = Depends(get_navigation_client),
+	client: NavigationAdminClient = Depends(get_navigation_admin_client),
 ) -> Dict[str, Any]:
 	return await client.update_poi(poi_id, payload, authorization)
 
@@ -115,6 +115,6 @@ async def update_poi(
 async def delete_poi(
 	poi_id: str,
 	authorization: Optional[str] = Header(default=None),
-	client: NavigationClient = Depends(get_navigation_client),
+	client: NavigationAdminClient = Depends(get_navigation_admin_client),
 ) -> Dict[str, Any]:
 	return await client.delete_poi(poi_id, authorization)
