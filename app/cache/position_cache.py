@@ -19,3 +19,6 @@ class PositionCache:
 
     async def set(self, user_id: str, value: Dict[str, Any]) -> None:
         await self.redis.set(self._key(user_id), json.dumps(value), ttl=self.ttl_seconds)
+
+    async def delete(self, user_id: str) -> None:
+        await self.redis.delete(self._key(user_id))

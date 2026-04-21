@@ -4,13 +4,13 @@
 - keep orchestration surface stable for future resilience/caching additions
 """
 
-import json
 import logging
 from typing import Any, Dict, List, Optional, Tuple
 
 import httpx
 from fastapi import HTTPException
 
+from app.cache.position_cache import PositionCache
 from app.cache.route_cache import RouteCache
 from app.cache.redis_client import RedisClient
 from app.clients.navigation_client import NavigationClient
@@ -32,6 +32,7 @@ class NavigationOrchestrator:
         positioning_client: PositioningClient,
     ):
         self.redis = redis_client
+        self.position_cache = PositionCache(redis_client)
         self.route_cache = RouteCache(redis_client)
         self.navigation_client = navigation_client
         self.positioning_client = positioning_client
@@ -97,12 +98,14 @@ class NavigationOrchestrator:
         from_building_id: str,
         from_floor_id: str,
         to_poi_id: str,
+        user_id: Optional[str] = None,
         from_lat: Optional[float] = None,
         from_lng: Optional[float] = None,
         from_files: Optional[List[Any]] = None,
         accessible: bool = False,
     ) -> Dict[str, Any]:
         used_positioning = False
+        warning: Optional[str] = None
 
         resolved_lat = from_lat
         resolved_lng = from_lng
@@ -123,12 +126,49 @@ class NavigationOrchestrator:
                 positioning_response = await self.positioning_client.predict(positioning_payload)
                 resolved_lat, resolved_lng = self._extract_coordinates(positioning_response)
                 used_positioning = True
+
+                if user_id:
+                    await self.position_cache.set(
+                        user_id,
+                        {
+                            "floorId": from_floor_id,
+                            "lat": resolved_lat,
+                            "lng": resolved_lng,
+                        },
+                    )
             except HTTPException as exc:
-                raise HTTPException(status_code=400, detail=f"Positioning failed: {exc.detail}") from exc
+                if user_id:
+                    last_position = await self.position_cache.get(user_id)
+                    if last_position and last_position.get("lat") is not None and last_position.get("lng") is not None:
+                        resolved_lat = float(last_position["lat"])
+                        resolved_lng = float(last_position["lng"])
+                        warning = "position may be outdated"
+                    else:
+                        raise HTTPException(status_code=400, detail=f"Positioning failed: {exc.detail}") from exc
+                else:
+                    raise HTTPException(status_code=400, detail=f"Positioning failed: {exc.detail}") from exc
             except (ValueError, TypeError, KeyError) as exc:
-                raise HTTPException(status_code=400, detail=f"Positioning failed: {str(exc)}") from exc
+                if user_id:
+                    last_position = await self.position_cache.get(user_id)
+                    if last_position and last_position.get("lat") is not None and last_position.get("lng") is not None:
+                        resolved_lat = float(last_position["lat"])
+                        resolved_lng = float(last_position["lng"])
+                        warning = "position may be outdated"
+                    else:
+                        raise HTTPException(status_code=400, detail=f"Positioning failed: {str(exc)}") from exc
+                else:
+                    raise HTTPException(status_code=400, detail=f"Positioning failed: {str(exc)}") from exc
             except (httpx.RequestError, httpx.HTTPStatusError) as exc:
-                raise HTTPException(status_code=400, detail="Positioning failed: downstream unavailable") from exc
+                if user_id:
+                    last_position = await self.position_cache.get(user_id)
+                    if last_position and last_position.get("lat") is not None and last_position.get("lng") is not None:
+                        resolved_lat = float(last_position["lat"])
+                        resolved_lng = float(last_position["lng"])
+                        warning = "position may be outdated"
+                    else:
+                        raise HTTPException(status_code=400, detail="Positioning failed: downstream unavailable") from exc
+                else:
+                    raise HTTPException(status_code=400, detail="Positioning failed: downstream unavailable") from exc
 
         cached_route = await self._get_cached_route(
             building_id=from_building_id,
@@ -139,13 +179,16 @@ class NavigationOrchestrator:
             accessible=accessible,
         )
         if cached_route is not None:
-            return {
+            response = {
                 "route": cached_route,
                 "meta": {
                     "source": "cache",
                     "usedPositioning": used_positioning,
                 },
             }
+            if warning:
+                response["warning"] = warning
+            return response
 
         payload = self._build_route_payload(
             floor_id=from_floor_id,
@@ -166,13 +209,16 @@ class NavigationOrchestrator:
                 accessible=accessible,
                 value=route_response,
             )
-            return {
+            response = {
                 "route": route_response,
                 "meta": {
                     "source": "live",
                     "usedPositioning": used_positioning,
                 },
             }
+            if warning:
+                response["warning"] = warning
+            return response
         except HTTPException as exc:
             fallback = await self._get_cached_route(
                 building_id=from_building_id,
@@ -184,13 +230,15 @@ class NavigationOrchestrator:
             )
             if fallback is not None:
                 logger.warning("Navigation failed, using fallback")
-                return {
+                response = {
                     "route": fallback,
                     "meta": {
                         "source": "cache",
                         "usedPositioning": used_positioning,
                     },
                 }
+                response["warning"] = warning or "served cached route due to navigation failure"
+                return response
             raise HTTPException(status_code=503, detail="Navigation service unavailable") from exc
         except (httpx.RequestError, httpx.HTTPStatusError) as exc:
             fallback = await self._get_cached_route(
@@ -203,11 +251,13 @@ class NavigationOrchestrator:
             )
             if fallback is not None:
                 logger.warning("Navigation failed, using fallback")
-                return {
+                response = {
                     "route": fallback,
                     "meta": {
                         "source": "cache",
                         "usedPositioning": used_positioning,
                     },
                 }
+                response["warning"] = warning or "served cached route due to navigation failure"
+                return response
             raise HTTPException(status_code=503, detail="Navigation service unavailable") from exc

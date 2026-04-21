@@ -17,6 +17,7 @@ router = APIRouter(tags=["navigation"])
 # -------- Request/Response Models --------
 class LocationFromModel(BaseModel):
     """Source location (coordinates or POI)."""
+    user_id: Optional[str] = Field(None, alias="userId", description="User identifier")
     building_id: str = Field(..., alias="buildingId", description="Building UUID")
     floor_id: str = Field(..., alias="floorId", description="Floor UUID")
     lat: Optional[float] = Field(None, description="Latitude")
@@ -107,6 +108,7 @@ class CalculateRouteResponse(BaseModel):
     """Route calculation response (mobile-optimized)."""
     route: Dict[str, Any]
     meta: Dict[str, Any]
+    warning: Optional[str] = None
 
 
 # -------- Dependency injection --------
@@ -138,6 +140,7 @@ async def calculate_route(
             from_building_id=from_loc.building_id,
             from_floor_id=from_loc.floor_id,
             to_poi_id=to_loc.poi_id,
+            user_id=from_loc.user_id,
             from_lat=from_loc.lat,
             from_lng=from_loc.lng,
             from_files=from_loc.files,

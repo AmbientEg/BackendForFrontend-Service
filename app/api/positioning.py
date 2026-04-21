@@ -66,6 +66,7 @@ async def predict_position(
 ) -> Dict[str, Any]:
 	payload = request.model_dump(exclude_none=True)
 	user_id = payload.get("userId") or payload.get("user_id")
+	floor_id = payload.get("floorId") or payload.get("floor_id")
 
 	from app.main import redis_client
 	position_cache = PositionCache(redis_client) if redis_client and user_id else None
@@ -73,15 +74,24 @@ async def predict_position(
 	if position_cache is not None:
 		cached_position = await position_cache.get(str(user_id))
 		if cached_position is not None:
-			return {
-				"data": cached_position,
-				"meta": {
-					"source": "cache",
-					"ttlSeconds": 1,
-				},
-			}
+			cached_floor_id = cached_position.get("floorId") or cached_position.get("floor_id")
+			if floor_id is not None and cached_floor_id is not None and str(floor_id) != str(cached_floor_id):
+				await position_cache.delete(str(user_id))
+			else:
+				return {
+					"data": cached_position,
+					"meta": {
+						"source": "cache",
+						"ttlSeconds": 1,
+					},
+				}
 
 	prediction = await client.predict(payload)
+	if floor_id is not None and isinstance(prediction, dict) and "floorId" not in prediction and "floor_id" not in prediction:
+		prediction = {
+			**prediction,
+			"floorId": floor_id,
+		}
 
 	if position_cache is not None:
 		await position_cache.set(str(user_id), prediction)

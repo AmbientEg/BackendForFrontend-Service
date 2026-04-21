@@ -45,3 +45,12 @@ class RouteCache:
     ) -> None:
         key = self._key(building_id, floor_id, lat, lng, poi_id, accessible)
         await self.redis.set(key, json.dumps(value), ttl=self.ttl_seconds)
+
+    async def invalidate_building(self, building_id: str) -> int:
+        return await self.redis.delete_prefix(f"route:{building_id}:")
+
+    async def invalidate_floor(self, floor_id: str) -> int:
+        return await self.redis.delete_pattern(f"route:*:{floor_id}:*")
+
+    async def invalidate_all(self) -> int:
+        return await self.redis.delete_prefix("route:")

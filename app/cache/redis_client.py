@@ -49,6 +49,24 @@ class RedisClient:
         """
         await self.client.delete(key)
 
+    async def delete_prefix(self, prefix: str) -> int:
+        """Delete all keys that start with the provided prefix.
+
+        Args:
+            prefix: Key prefix to invalidate (e.g., "route:building-1:")
+
+        Returns:
+            Number of deleted keys.
+        """
+        return await self.delete_pattern(f"{prefix}*")
+
+    async def delete_pattern(self, pattern: str) -> int:
+        """Delete all keys matching a Redis glob pattern."""
+        deleted = 0
+        async for key in self.client.scan_iter(match=pattern):
+            deleted += await self.client.delete(key)
+        return int(deleted)
+
     async def close(self) -> None:
         """Close Redis connection gracefully.
         
