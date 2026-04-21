@@ -17,9 +17,11 @@ router = APIRouter(tags=["navigation"])
 # -------- Request/Response Models --------
 class LocationFromModel(BaseModel):
     """Source location (coordinates or POI)."""
+    building_id: str = Field(..., alias="buildingId", description="Building UUID")
     floor_id: str = Field(..., alias="floorId", description="Floor UUID")
-    lat: float = Field(..., description="Latitude")
-    lng: float = Field(..., description="Longitude")
+    lat: Optional[float] = Field(None, description="Latitude")
+    lng: Optional[float] = Field(None, description="Longitude")
+    files: Optional[list[Any]] = Field(None, description="File references for positioning fallback")
 
 
     class Config:
@@ -103,13 +105,8 @@ class WaypointModel(BaseModel):
 
 class CalculateRouteResponse(BaseModel):
     """Route calculation response (mobile-optimized)."""
-    distance_meters: float
-    duration_seconds: int
-    steps: list[str]
-    polyline: list[list[float]]
-    waypoints: list[dict] = []
-    accessibility: dict = {}
-    metadata: dict = {}
+    route: Dict[str, Any]
+    meta: Dict[str, Any]
 
 
 # -------- Dependency injection --------
@@ -119,11 +116,11 @@ async def get_orchestrator() -> NavigationOrchestrator:
     This function retrieves clients from app state at request time,
     avoiding circular imports at module load time.
     """
-    from app.main import redis_client, navigation_client
+    from app.main import redis_client, navigation_client, positioning_client
     
-    if not redis_client or not navigation_client:
+    if not redis_client or not navigation_client or not positioning_client:
         raise HTTPException(status_code=503, detail="Service initialization failed")
-    return NavigationOrchestrator(redis_client, navigation_client)
+    return NavigationOrchestrator(redis_client, navigation_client, positioning_client)
 
 
 # -------- Endpoints --------
@@ -131,18 +128,19 @@ async def get_orchestrator() -> NavigationOrchestrator:
 async def calculate_route(
     request: CalculateRouteRequest,
     orchestrator: NavigationOrchestrator = Depends(get_orchestrator),
-) -> Dict[str, Any]:
+) -> CalculateRouteResponse:
     try:
         from_loc = request.from_location
         to_loc = request.to_location
         opts = request.options or RouteOptionsModel()
 
-        # Call orchestration layer
-        service_response = await orchestrator.calculate_route(
+        response = await orchestrator.calculate_route(
+            from_building_id=from_loc.building_id,
             from_floor_id=from_loc.floor_id,
+            to_poi_id=to_loc.poi_id,
             from_lat=from_loc.lat,
             from_lng=from_loc.lng,
-            to_poi_id=to_loc.poi_id,
+            from_files=from_loc.files,
             accessible=opts.accessible,
         )
 
@@ -154,7 +152,7 @@ async def calculate_route(
             },
         )
 
-        return {"data": service_response}
+        return CalculateRouteResponse(**response)
 
     except ValueError as e:
         logger.warning(f"Invalid route request: {e}")

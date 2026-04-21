@@ -8,6 +8,7 @@ from typing import Any, Dict
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict
 
+from app.cache.position_cache import PositionCache
 from app.clients.positioning_client import PositioningClient
 
 router = APIRouter(prefix="/position", tags=["positioning"])
@@ -63,6 +64,34 @@ async def predict_position(
 	request: PredictRequest,
 	client: PositioningClient = Depends(get_positioning_client),
 ) -> Dict[str, Any]:
-	return {"data": await client.predict(request.model_dump(exclude_none=True))}
+	payload = request.model_dump(exclude_none=True)
+	user_id = payload.get("userId") or payload.get("user_id")
+
+	from app.main import redis_client
+	position_cache = PositionCache(redis_client) if redis_client and user_id else None
+
+	if position_cache is not None:
+		cached_position = await position_cache.get(str(user_id))
+		if cached_position is not None:
+			return {
+				"data": cached_position,
+				"meta": {
+					"source": "cache",
+					"ttlSeconds": 1,
+				},
+			}
+
+	prediction = await client.predict(payload)
+
+	if position_cache is not None:
+		await position_cache.set(str(user_id), prediction)
+
+	return {
+		"data": prediction,
+		"meta": {
+			"source": "live",
+			"ttlSeconds": 1,
+		},
+	}
 
 
