@@ -8,6 +8,7 @@ import uvicorn
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from pyresilience import BulkheadFullError, CircuitOpenError, ResilienceTimeoutError
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app.cache.redis_client import RedisClient
@@ -123,6 +124,22 @@ app.include_router(nav_router.router, prefix="/api")
 app.include_router(admin_router.router, prefix="/api")
 
 
+def _downstream_unavailable_response(request: Request, detail: str, status_code: int) -> JSONResponse:
+    correlation_id = getattr(request.state, 'correlation_id', 'unknown')
+    return JSONResponse(
+        status_code=status_code,
+        content={
+            "detail": detail,
+            "error": detail,
+            "status_code": status_code,
+            "timestamp": datetime.utcnow().isoformat(),
+            "path": request.url.path,
+            "correlation_id": correlation_id,
+            "type": "downstream_unavailable"
+        }
+    )
+
+
 # Request logging middleware
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
@@ -204,6 +221,33 @@ async def http_exception_handler(request: Request, exc: HTTPException):
             "correlation_id": correlation_id,
             "type": "http_error"
         }
+    )
+
+
+@app.exception_handler(CircuitOpenError)
+async def circuit_open_exception_handler(request: Request, exc: CircuitOpenError):
+    return _downstream_unavailable_response(
+        request,
+        detail="Downstream service circuit is open",
+        status_code=503,
+    )
+
+
+@app.exception_handler(BulkheadFullError)
+async def bulkhead_full_exception_handler(request: Request, exc: BulkheadFullError):
+    return _downstream_unavailable_response(
+        request,
+        detail="Downstream service concurrency limit reached",
+        status_code=503,
+    )
+
+
+@app.exception_handler(ResilienceTimeoutError)
+async def resilience_timeout_exception_handler(request: Request, exc: ResilienceTimeoutError):
+    return _downstream_unavailable_response(
+        request,
+        detail="Downstream request timed out",
+        status_code=504,
     )
 
 

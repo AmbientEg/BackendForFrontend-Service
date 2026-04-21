@@ -150,10 +150,6 @@ async def calculate_route(
         logger.warning(f"Invalid route request: {e}")
         raise HTTPException(status_code=400, detail=str(e))
 
-    except Exception as e:
-        logger.error(f"Route calculation failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Route calculation failed")
-
 
 @router.get("/nearby", summary="Find Nearby POIs")
 async def find_nearby(

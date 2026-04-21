@@ -1,7 +1,7 @@
 class PositionCache:
     def __init__(self, redis):
         self.redis = redis
-        self.ttl = 3  # seconds
+        self.ttl = 1  # seconds
 
     def _key(self, user_id):
         return f"position:{user_id}"
