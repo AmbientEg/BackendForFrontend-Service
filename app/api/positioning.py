@@ -1,15 +1,68 @@
-# user send RSSI data to this endpoint, and we will return the estimated position in Lang and Lat
+"""Positioning API endpoints.
 
-# GET /position/current
-# response
-# {
-#   "floorId": "...",
-#   "lat": ...,
-#   "lng": ...
-# }
+HTTP layer for positioning-service integration.
+"""
 
-# Comes from:
-# Positioning service
-# Cached in Redis
+from typing import Any, Dict
+
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, ConfigDict
+
+from app.clients.positioning_client import PositioningClient
+
+router = APIRouter(prefix="/position", tags=["positioning"])
+
+
+class GridCoordinatesRequest(BaseModel):
+	model_config = ConfigDict(extra="allow")
+
+
+class PredictRequest(BaseModel):
+	model_config = ConfigDict(extra="allow")
+
+
+async def get_positioning_client() -> PositioningClient:
+	from app.main import positioning_client
+
+	if not positioning_client:
+		raise HTTPException(status_code=503, detail="Service initialization failed")
+
+	return positioning_client
+
+
+@router.get("/", summary="Positioning Service Root")
+async def positioning_root(client: PositioningClient = Depends(get_positioning_client)) -> Dict[str, Any]:
+	return {"data": await client.root()}
+
+
+@router.get("/health", summary="Positioning Health")
+async def positioning_health(client: PositioningClient = Depends(get_positioning_client)) -> Dict[str, Any]:
+	return {"data": await client.health()}
+
+
+@router.get("/health/live", summary="Positioning Liveness")
+async def positioning_liveness(client: PositioningClient = Depends(get_positioning_client)) -> Dict[str, Any]:
+	return {"data": await client.liveness()}
+
+
+@router.get("/health/ready", summary="Positioning Readiness")
+async def positioning_readiness(client: PositioningClient = Depends(get_positioning_client)) -> Dict[str, Any]:
+	return {"data": await client.readiness()}
+
+
+@router.post("/grid/coordinates", summary="Resolve Grid Coordinates")
+async def grid_coordinates(
+	request: GridCoordinatesRequest,
+	client: PositioningClient = Depends(get_positioning_client),
+) -> Dict[str, Any]:
+	return {"data": await client.grid_coordinates(request.model_dump(exclude_none=True))}
+
+
+@router.post("/predict", summary="Predict Position")
+async def predict_position(
+	request: PredictRequest,
+	client: PositioningClient = Depends(get_positioning_client),
+) -> Dict[str, Any]:
+	return {"data": await client.predict(request.model_dump(exclude_none=True))}
 
 

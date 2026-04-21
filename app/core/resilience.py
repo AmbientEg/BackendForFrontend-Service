@@ -47,7 +47,7 @@ def build_http_resilience_policy(service_name: str) -> Dict[str, Any]:
             error_types=(httpx.RequestError, httpx.HTTPStatusError),
         ),
         "bulkhead": BulkheadConfig(
-            max_concurrent=_env_int(f"{prefix}_BULKHEAD_MAX_CONCURRENT", 20),
+                max_concurrent=_env_int(f"{prefix}_BULKHEAD_MAX_CONCURRENT", 20),
             max_wait=_env_float(f"{prefix}_BULKHEAD_MAX_WAIT_SECONDS", 0.0),
         ),
     }

@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 
 import uvicorn
+import httpx
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -14,8 +15,12 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from app.cache.redis_client import RedisClient
 from app.clients.nav_client_admin import NavigationAdminClient
 from app.clients.navigation_client import NavigationClient
+from app.clients.positioning_admin_client import PositioningAdminClient
+from app.clients.positioning_client import PositioningClient
 from app.api import navigation as nav_router
 from app.api import admin as admin_router
+from app.api import client_map as client_map_router
+from app.api import positioning as position_router
 from dotenv import load_dotenv
 
 
@@ -55,6 +60,8 @@ logger = setup_logging()
 redis_client: RedisClient = None
 navigation_client: NavigationClient = None
 navigation_admin_client: NavigationAdminClient = None
+positioning_client: PositioningClient = None
+positioning_admin_client: PositioningAdminClient = None
 
 # ----------------------------------------------------
 # Lifespan for Startup & Shutdown
@@ -63,7 +70,7 @@ navigation_admin_client: NavigationAdminClient = None
 async def lifespan(app: FastAPI):
     """Initialize redis and AI services on startup, cleanup on shutdown"""
     try:
-        global redis_client, navigation_client, navigation_admin_client
+        global redis_client, navigation_client, navigation_admin_client, positioning_client, positioning_admin_client
         
         # Initialize Redis client
         redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
@@ -77,6 +84,13 @@ async def lifespan(app: FastAPI):
 
         navigation_admin_client = NavigationAdminClient(base_url=navigation_base_url)
         logger.info(f"Navigation admin client initialized: {navigation_base_url}")
+
+        positioning_base_url = os.getenv("POSITIONING_SERVICE_URL", "http://positioning-service:8000")
+        positioning_client = PositioningClient(base_url=positioning_base_url)
+        logger.info(f"Positioning client initialized: {positioning_base_url}")
+
+        positioning_admin_client = PositioningAdminClient(base_url=positioning_base_url)
+        logger.info(f"Positioning admin client initialized: {positioning_base_url}")
         
         logger.info("Application startup completed")
         yield
@@ -92,6 +106,10 @@ async def lifespan(app: FastAPI):
                 await navigation_client.close()
             if navigation_admin_client:
                 await navigation_admin_client.close()
+            if positioning_client:
+                await positioning_client.close()
+            if positioning_admin_client:
+                await positioning_admin_client.close()
             if redis_client:
                 await redis_client.close()
             logger.info("Connections closed")
@@ -129,6 +147,12 @@ app.include_router(nav_router.router, prefix="/api")
 
 # Mount admin router
 app.include_router(admin_router.router, prefix="/api")
+
+# Mount mobile map router
+app.include_router(client_map_router.router, prefix="/api")
+
+# Mount positioning router
+app.include_router(position_router.router, prefix="/api")
 
 
 def _downstream_unavailable_response(request: Request, detail: str, status_code: int) -> JSONResponse:
@@ -255,6 +279,24 @@ async def resilience_timeout_exception_handler(request: Request, exc: Resilience
         request,
         detail="Downstream request timed out",
         status_code=504,
+    )
+
+
+@app.exception_handler(httpx.HTTPStatusError)
+async def downstream_http_status_error_handler(request: Request, exc: httpx.HTTPStatusError):
+    return _downstream_unavailable_response(
+        request,
+        detail="Downstream service unavailable",
+        status_code=503,
+    )
+
+
+@app.exception_handler(httpx.RequestError)
+async def downstream_request_error_handler(request: Request, exc: httpx.RequestError):
+    return _downstream_unavailable_response(
+        request,
+        detail="Downstream service unavailable",
+        status_code=503,
     )
 
 

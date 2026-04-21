@@ -1,12 +1,4 @@
-"""Navigation API endpoints.
-
-HTTP layer for navigation flows. Calls orchestration layer.
-No business logic here — only request/response validation and delegation.
-
-Endpoints:
-1. POST /api/navigation/route - calculate route (POI to POI or position to POI)
-2. GET /api/navigation/nearby - find nearby POIs (FUTURE)
-"""
+"""Navigation API endpoints."""
 
 import logging
 from typing import Any, Dict, Optional
@@ -15,10 +7,11 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, Field
 
 from app.orchestration.navigation_orchestrator import NavigationOrchestrator
+from app.clients.navigation_client import NavigationClient
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/navigation", tags=["navigation"])
+router = APIRouter(tags=["navigation"])
 
 
 # -------- Request/Response Models --------
@@ -28,8 +21,46 @@ class LocationFromModel(BaseModel):
     lat: float = Field(..., description="Latitude")
     lng: float = Field(..., description="Longitude")
 
+
     class Config:
         populate_by_name = True
+
+async def get_navigation_client() -> NavigationClient:
+    """Get user navigation client for health/status probes."""
+    from app.main import navigation_client
+    
+    if not navigation_client:
+        raise HTTPException(status_code=503, detail="Service initialization failed")
+    
+    return navigation_client
+
+
+
+
+@router.get("/", summary="Navigation Service Root")
+async def navigation_root(client: Any = Depends(get_navigation_client)) -> Dict[str, Any]:
+    return {"data": await client.root()}
+
+
+@router.get("/health", summary="Navigation Health")
+async def navigation_health(client: Any = Depends(get_navigation_client)) -> Dict[str, Any]:
+    return {"data": await client.health()}
+
+
+@router.get("/health/ready", summary="Navigation Readiness")
+async def navigation_readiness(client: Any = Depends(get_navigation_client)) -> Dict[str, Any]:
+    return {"data": await client.readiness()}
+
+
+@router.get("/health/live", summary="Navigation Liveness")
+async def navigation_liveness(client: Any = Depends(get_navigation_client)) -> Dict[str, Any]:
+    return {"data": await client.liveness()}
+
+
+@router.get("/status", summary="Navigation Service Status")
+async def navigation_status(client: Any = Depends(get_navigation_client)) -> Dict[str, Any]:
+    return {"data": await client.api_status()}
+
 
 
 class LocationToModel(BaseModel):
@@ -96,32 +127,11 @@ async def get_orchestrator() -> NavigationOrchestrator:
 
 
 # -------- Endpoints --------
-@router.post("/route", summary="Calculate Route")
+@router.post("/navigation/route", summary="Calculate Route")
 async def calculate_route(
     request: CalculateRouteRequest,
     orchestrator: NavigationOrchestrator = Depends(get_orchestrator),
 ) -> Dict[str, Any]:
-    """Calculate route between locations.
-
-    Request body (POI to POI):
-    ```json
-    {
-      "from": {
-                "floorId": "f5bb8f0d-ea83-4f30-864c-8d3c738f36f5",
-        "lat": 30.02771092227816,
-        "lng": 31.201406546960303
-      },
-      "to": {
-                "poiId": "694b1b35-754e-4086-a8f6-11290edfa56b"
-      },
-      "options": {
-        "accessible": true
-      }
-    }
-    ```
-
-    Phase-1 behavior: returns raw navigation-service response.
-    """
     try:
         from_loc = request.from_location
         to_loc = request.to_location
@@ -144,34 +154,11 @@ async def calculate_route(
             },
         )
 
-        return service_response
+        return {"data": service_response}
 
     except ValueError as e:
         logger.warning(f"Invalid route request: {e}")
         raise HTTPException(status_code=400, detail=str(e))
-
-
-@router.get("/nearby", summary="Find Nearby POIs")
-async def find_nearby(
-    floor_id: str,
-    lat: float,
-    lng: float,
-    radius_meters: int = 50,
-) -> dict:
-    """Find POIs near a location.
-    
-    TODO (phase-2): Implement nearby POI search with caching.
-    
-    Args:
-        floor_id: Floor UUID
-        lat: Latitude
-        lng: Longitude
-        radius_meters: Search radius in meters
-        
-    Returns:
-        List of nearby POIs with distances
-    """
-    raise HTTPException(status_code=501, detail="Nearby POI search not yet implemented")
 
 
 
