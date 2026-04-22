@@ -3,9 +3,9 @@
 HTTP layer for positioning-service integration.
 """
 
-from typing import Any, Dict
+from typing import Any, Dict, List, Tuple
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, ConfigDict
 
 from app.cache.position_cache import PositionCache
@@ -61,10 +61,45 @@ async def grid_coordinates(
 
 @router.post("/predict", summary="Predict Position")
 async def predict_position(
-	request: PredictRequest,
+	request: Request,
 	client: PositioningClient = Depends(get_positioning_client),
 ) -> Dict[str, Any]:
-	payload = request.model_dump(exclude_none=True)
+	payload: Dict[str, Any] = {}
+	multipart_files: List[Tuple[str, Tuple[str, bytes, str]]] = []
+
+	content_type = request.headers.get("content-type", "")
+	if content_type.startswith("multipart/form-data"):
+		form_data = await request.form()
+		payload = {
+			k: v
+			for k, v in form_data.items()
+			if not (hasattr(v, "filename") and hasattr(v, "read"))
+		}
+		upload_files = form_data.getlist("files")
+
+		for file_obj in upload_files:
+			if not (hasattr(file_obj, "filename") and hasattr(file_obj, "read")):
+				continue
+			content = await file_obj.read()
+			multipart_files.append(
+				(
+					"files",
+					(
+						file_obj.filename or "beacon.csv",
+						content,
+						file_obj.content_type or "application/octet-stream",
+					),
+				)
+			)
+
+		if not multipart_files:
+			raise HTTPException(status_code=400, detail="files are required in multipart/form-data")
+	else:
+		json_payload = await request.json()
+		if not isinstance(json_payload, dict):
+			raise HTTPException(status_code=400, detail="Invalid JSON payload")
+		payload = json_payload
+
 	user_id = payload.get("userId") or payload.get("user_id")
 	floor_id = payload.get("floorId") or payload.get("floor_id")
 
@@ -86,7 +121,7 @@ async def predict_position(
 					},
 				}
 
-	prediction = await client.predict(payload)
+	prediction = await client.predict(payload, files=multipart_files or None)
 	if floor_id is not None and isinstance(prediction, dict) and "floorId" not in prediction and "floor_id" not in prediction:
 		prediction = {
 			**prediction,

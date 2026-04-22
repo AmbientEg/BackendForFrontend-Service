@@ -22,6 +22,18 @@ def _env_float(name: str, default: float) -> float:
 
 
 def downstream_error_detail(response: httpx.Response) -> str:
+    try:
+        payload = response.json()
+        if isinstance(payload, dict):
+            if payload.get("detail"):
+                return str(payload["detail"])
+            if payload.get("error"):
+                return str(payload["error"])
+        if payload is not None:
+            return str(payload)
+    except ValueError:
+        pass
+
     detail = response.text.strip()
     if detail:
         return detail

@@ -1,0 +1,355 @@
+{
+  "info": {
+    "_postman_id": "8e6dcf20-6044-4f2a-87f4-7e609ac9a6e1",
+    "name": "BackendForFrontend-Service APIs",
+    "description": "Postman collection for all currently implemented BFF APIs.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://127.0.0.1:8003" },
+    { "key": "adminToken", "value": "replace-with-admin-bearer-token" },
+    { "key": "userId", "value": "user-123" },
+    { "key": "buildingId", "value": "building-123" },
+    { "key": "floorId", "value": "floor-123" },
+    { "key": "poiId", "value": "poi-123" }
+  ],
+  "item": [
+    {
+      "name": "BFF Health",
+      "item": [
+        {
+          "name": "GET /",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/", "host": ["{{baseUrl}}"], "path": [""] }
+          }
+        },
+        {
+          "name": "GET /health",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/health", "host": ["{{baseUrl}}"], "path": ["health"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Navigation",
+      "item": [
+        {
+          "name": "GET /api/",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/", "host": ["{{baseUrl}}"], "path": ["api", ""] }
+          }
+        },
+        {
+          "name": "GET /api/health",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/health", "host": ["{{baseUrl}}"], "path": ["api", "health"] }
+          }
+        },
+        {
+          "name": "GET /api/health/ready",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/health/ready", "host": ["{{baseUrl}}"], "path": ["api", "health", "ready"] }
+          }
+        },
+        {
+          "name": "GET /api/health/live",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/health/live", "host": ["{{baseUrl}}"], "path": ["api", "health", "live"] }
+          }
+        },
+        {
+          "name": "GET /api/status",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/status", "host": ["{{baseUrl}}"], "path": ["api", "status"] }
+          }
+        },
+        {
+          "name": "POST /api/navigation/route (with lat/lng)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"from\": {\n    \"userId\": \"{{userId}}\",\n    \"buildingId\": \"{{buildingId}}\",\n    \"floorId\": \"{{floorId}}\",\n    \"lat\": 30.0277,\n    \"lng\": 31.2014\n  },\n  \"to\": {\n    \"poiId\": \"{{poiId}}\"\n  },\n  \"options\": {\n    \"accessible\": false\n  }\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/navigation/route", "host": ["{{baseUrl}}"], "path": ["api", "navigation", "route"] }
+          }
+        },
+        {
+          "name": "POST /api/navigation/route (positioning fallback)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"from\": {\n    \"userId\": \"{{userId}}\",\n    \"buildingId\": \"{{buildingId}}\",\n    \"floorId\": \"{{floorId}}\",\n    \"files\": [\n      \"rssi_file_1\",\n      \"rssi_file_2\"\n    ]\n  },\n  \"to\": {\n    \"poiId\": \"{{poiId}}\"\n  },\n  \"options\": {\n    \"accessible\": true\n  }\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/navigation/route", "host": ["{{baseUrl}}"], "path": ["api", "navigation", "route"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Positioning",
+      "item": [
+        {
+          "name": "GET /api/position/",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/position/", "host": ["{{baseUrl}}"], "path": ["api", "position", ""] }
+          }
+        },
+        {
+          "name": "GET /api/position/health",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/position/health", "host": ["{{baseUrl}}"], "path": ["api", "position", "health"] }
+          }
+        },
+        {
+          "name": "GET /api/position/health/live",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/position/health/live", "host": ["{{baseUrl}}"], "path": ["api", "position", "health", "live"] }
+          }
+        },
+        {
+          "name": "GET /api/position/health/ready",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/position/health/ready", "host": ["{{baseUrl}}"], "path": ["api", "position", "health", "ready"] }
+          }
+        },
+        {
+          "name": "POST /api/position/grid/coordinates",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"floorId\": \"{{floorId}}\",\n  \"lat\": 30.0277,\n  \"lng\": 31.2014\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/position/grid/coordinates", "host": ["{{baseUrl}}"], "path": ["api", "position", "grid", "coordinates"] }
+          }
+        },
+        {
+          "name": "POST /api/position/predict",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{userId}}\",\n  \"floorId\": \"{{floorId}}\",\n  \"files\": [\n    \"rssi_file_1\",\n    \"rssi_file_2\"\n  ]\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/position/predict", "host": ["{{baseUrl}}"], "path": ["api", "position", "predict"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Client Map (User Read APIs)",
+      "item": [
+        {
+          "name": "GET /api/buildings/{buildingId}/floors",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/buildings/{{buildingId}}/floors",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "buildings", "{{buildingId}}", "floors"]
+            }
+          }
+        },
+        {
+          "name": "GET /api/floors/{floorId}/map",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/floors/{{floorId}}/map",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "floors", "{{floorId}}", "map"]
+            }
+          }
+        },
+        {
+          "name": "GET /api/admin/pois/floor/{floorId}",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/pois/floor/{{floorId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "pois", "floor", "{{floorId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin (Requires Bearer Token)",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          { "key": "token", "value": "{{adminToken}}", "type": "string" }
+        ]
+      },
+      "item": [
+        {
+          "name": "POST /api/buildings",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Building A\",\n  \"code\": \"B1\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/buildings", "host": ["{{baseUrl}}"], "path": ["api", "buildings"] }
+          }
+        },
+        {
+          "name": "GET /api/buildings/{buildingId}",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/buildings/{{buildingId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "buildings", "{{buildingId}}"]
+            }
+          }
+        },
+        {
+          "name": "POST /api/floors",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"buildingId\": \"{{buildingId}}\",\n  \"name\": \"Ground\",\n  \"level\": 0\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/floors", "host": ["{{baseUrl}}"], "path": ["api", "floors"] }
+          }
+        },
+        {
+          "name": "PUT /api/floors/{floorId}",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Ground Floor\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/floors/{{floorId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "floors", "{{floorId}}"]
+            }
+          }
+        },
+        {
+          "name": "POST /api/graphs/rebuild/{buildingId}",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/api/graphs/rebuild/{{buildingId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "graphs", "rebuild", "{{buildingId}}"]
+            }
+          }
+        },
+        {
+          "name": "POST /api/graphs/confirm/{buildingId}",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/api/graphs/confirm/{{buildingId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "graphs", "confirm", "{{buildingId}}"]
+            }
+          }
+        },
+        {
+          "name": "POST /api/graphs/rollback/{buildingId}",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/api/graphs/rollback/{{buildingId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "graphs", "rollback", "{{buildingId}}"]
+            }
+          }
+        },
+        {
+          "name": "PUT /api/admin/pois/{poiId}",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated POI\",\n  \"floorId\": \"{{floorId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/pois/{{poiId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "pois", "{{poiId}}"]
+            }
+          }
+        },
+        {
+          "name": "DELETE /api/admin/pois/{poiId}",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/pois/{{poiId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "pois", "{{poiId}}"]
+            }
+          }
+        },
+        {
+          "name": "POST /api/position/grid/import (multipart)",
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": ""
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/position/grid/import",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "position", "grid", "import"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

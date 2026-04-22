@@ -220,6 +220,9 @@ class NavigationOrchestrator:
                 response["warning"] = warning
             return response
         except HTTPException as exc:
+            if exc.status_code < 500:
+                raise
+
             fallback = await self._get_cached_route(
                 building_id=from_building_id,
                 floor_id=from_floor_id,

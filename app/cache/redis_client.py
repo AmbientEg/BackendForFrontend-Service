@@ -1,8 +1,13 @@
 """Redis client wrapper for async cache operations."""
 
+import logging
 from typing import Any, Optional
 
 import redis.asyncio as redis
+from redis.exceptions import RedisError
+
+
+logger = logging.getLogger(__name__)
 
 
 class RedisClient:
@@ -29,7 +34,11 @@ class RedisClient:
         Returns:
             Cached value as string, or None if key doesn't exist
         """
-        return await self.client.get(key)
+        try:
+            return await self.client.get(key)
+        except (RedisError, OSError) as exc:
+            logger.warning("Redis GET failed for %s: %s", key, exc)
+            return None
 
     async def set(self, key: str, value: str, ttl: Optional[int] = None) -> None:
         """Store value in cache with optional TTL.
@@ -39,7 +48,10 @@ class RedisClient:
             value: Value to cache (will be stored as string)
             ttl: Time-to-live in seconds (None = no expiration)
         """
-        await self.client.set(key, value, ex=ttl)
+        try:
+            await self.client.set(key, value, ex=ttl)
+        except (RedisError, OSError) as exc:
+            logger.warning("Redis SET failed for %s: %s", key, exc)
 
     async def delete(self, key: str) -> None:
         """Delete value from cache.
@@ -47,7 +59,10 @@ class RedisClient:
         Args:
             key: Cache key to delete
         """
-        await self.client.delete(key)
+        try:
+            await self.client.delete(key)
+        except (RedisError, OSError) as exc:
+            logger.warning("Redis DELETE failed for %s: %s", key, exc)
 
     async def delete_prefix(self, prefix: str) -> int:
         """Delete all keys that start with the provided prefix.
@@ -63,13 +78,20 @@ class RedisClient:
     async def delete_pattern(self, pattern: str) -> int:
         """Delete all keys matching a Redis glob pattern."""
         deleted = 0
-        async for key in self.client.scan_iter(match=pattern):
-            deleted += await self.client.delete(key)
-        return int(deleted)
+        try:
+            async for key in self.client.scan_iter(match=pattern):
+                deleted += await self.client.delete(key)
+            return int(deleted)
+        except (RedisError, OSError) as exc:
+            logger.warning("Redis pattern delete failed for %s: %s", pattern, exc)
+            return 0
 
     async def close(self) -> None:
         """Close Redis connection gracefully.
         
         Should be called during app shutdown.
         """
-        await self.client.close()
+        try:
+            await self.client.close()
+        except (RedisError, OSError) as exc:
+            logger.warning("Redis close failed: %s", exc)
