@@ -43,19 +43,59 @@ class NavigationOrchestrator:
         if "lat" in positioning_response and "lng" in positioning_response:
             return float(positioning_response["lat"]), float(positioning_response["lng"])
 
+        if "latitude" in positioning_response and "longitude" in positioning_response:
+            return float(positioning_response["latitude"]), float(positioning_response["longitude"])
+
         position_obj = positioning_response.get("position")
         if isinstance(position_obj, dict) and "lat" in position_obj and "lng" in position_obj:
             return float(position_obj["lat"]), float(position_obj["lng"])
+
+        if isinstance(position_obj, dict) and "latitude" in position_obj and "longitude" in position_obj:
+            return float(position_obj["latitude"]), float(position_obj["longitude"])
 
         data_obj = positioning_response.get("data")
         if isinstance(data_obj, dict):
             if "lat" in data_obj and "lng" in data_obj:
                 return float(data_obj["lat"]), float(data_obj["lng"])
+            if "latitude" in data_obj and "longitude" in data_obj:
+                return float(data_obj["latitude"]), float(data_obj["longitude"])
             nested_position = data_obj.get("position")
             if isinstance(nested_position, dict) and "lat" in nested_position and "lng" in nested_position:
                 return float(nested_position["lat"]), float(nested_position["lng"])
+            if isinstance(nested_position, dict) and "latitude" in nested_position and "longitude" in nested_position:
+                return float(nested_position["latitude"]), float(nested_position["longitude"])
 
         raise ValueError("Positioning response did not include valid lat/lng")
+
+    @staticmethod
+    def _extract_grid_label(positioning_response: Dict[str, Any]) -> Optional[str]:
+        for key in ("grid_label", "predicted_grid", "gridLabel"):
+            value = positioning_response.get(key)
+            if value not in (None, ""):
+                return str(value)
+
+        data_obj = positioning_response.get("data")
+        if isinstance(data_obj, dict):
+            for key in ("grid_label", "predicted_grid", "gridLabel"):
+                value = data_obj.get(key)
+                if value not in (None, ""):
+                    return str(value)
+
+        return None
+
+    async def _resolve_positioning_coordinates(
+        self,
+        positioning_response: Dict[str, Any],
+    ) -> Tuple[float, float]:
+        try:
+            return self._extract_coordinates(positioning_response)
+        except ValueError:
+            grid_label = self._extract_grid_label(positioning_response)
+            if not grid_label:
+                raise
+
+            grid_coordinates_response = await self.positioning_client.grid_coordinates({"grid_label": grid_label})
+            return self._extract_coordinates(grid_coordinates_response)
 
     @staticmethod
     def _build_route_payload(
@@ -124,7 +164,7 @@ class NavigationOrchestrator:
                     "files": from_files,
                 }
                 positioning_response = await self.positioning_client.predict(positioning_payload)
-                resolved_lat, resolved_lng = self._extract_coordinates(positioning_response)
+                resolved_lat, resolved_lng = await self._resolve_positioning_coordinates(positioning_response)
                 used_positioning = True
 
                 if user_id:
