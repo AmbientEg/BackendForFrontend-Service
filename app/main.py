@@ -27,7 +27,15 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-IS_PRODUCTION = os.getenv("ENV", "development").lower() == "production"
+def _env_value(*names: str, default: str = "") -> str:
+    for name in names:
+        value = os.getenv(name)
+        if value:
+            return value
+    return default
+
+
+IS_PRODUCTION = _env_value("ENV", "ENVIRONMENT", default="development").lower() == "production"
 
 # ----------------------------------------------------
 # Production Logging Configuration
@@ -207,11 +215,12 @@ if IS_PRODUCTION:
         app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
 
 # CORS Configuration
-cors_origins = os.getenv("CORS_ORIGINS", "*").split(",")
+cors_origins = [origin.strip() for origin in os.getenv("CORS_ORIGINS", "*").split(",") if origin.strip()]
+cors_allow_credentials = "*" not in cors_origins
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
-    allow_credentials=True,
+    allow_credentials=cors_allow_credentials,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=[
         "Accept",
@@ -391,9 +400,9 @@ async def get_api_status():
 if __name__ == "__main__":
     uvicorn.run(
         "app.main:app",
-        host="127.0.0.1",
-        port=os.getenv("PORT", 8003),
-        reload=True,
+        host=os.getenv("HOST", "0.0.0.0"),
+        port=int(os.getenv("PORT", "8003")),
+        reload=not IS_PRODUCTION,
         log_level="info"
 
     )

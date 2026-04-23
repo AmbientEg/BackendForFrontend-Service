@@ -1,23 +1,28 @@
-version: "3.9"
-
 services:
   bff:
-    image: rodynaamrfathygouda/bff:latest
+    image: rodynaamrfathygouda/smartbackend-api:latest
+    container_name: smartbackend-container
     ports:
       - "8003:8000"
-    depends_on:
-      - navigation
-      - positioning
-      - redis
     env_file:
-      
+      - ./bff.env
+    depends_on:
+      redis:
+        condition: service_healthy
+      navigation:
+        condition: service_started
+      positioning:
+        condition: service_started
+    restart: unless-stopped
+
   navigation:
     image: rodynaamrfathygouda/navigation-api:latest
     container_name: navigation-container
     ports:
       - "8000:8000"
     env_file:
-      - navigation.env
+      - ./navigation.env
+    restart: unless-stopped
 
   positioning:
     image: rodynaamrfathygouda/positioning-api:latest
@@ -25,13 +30,21 @@ services:
     ports:
       - "8001:8000"
     env_file:
-      - positioning.env
+      - ./positioning.env
+    restart: unless-stopped
 
   redis:
-    image: redis:7
+    image: redis:7-alpine
+    container_name: redis-cache
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
 
-network:
+networks:
   default:
     name: bff-network
