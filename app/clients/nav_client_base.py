@@ -48,10 +48,10 @@ class _NavigationClientBase(_DownstreamHttpClientBase):
 
     # -------- Shared Read APIs --------
     async def get_building_floors(self, building_id: str) -> Dict[str, Any]:
-        return await self._request("GET", f"/api/buildings/{building_id}/floors")
+        return await self._request("GET", f"/api/buildings/get/{building_id}/floors")
 
     async def get_floor_map(self, floor_id: str) -> Dict[str, Any]:
-        return await self._request("GET", f"/api/floors/{floor_id}/map")
+        return await self._request("GET", f"/api/floors/get/{floor_id}/map")
 
     async def get_floor_pois(self, floor_id: str) -> Dict[str, Any]:
-        return await self._request("GET", f"/api/admin/pois/floor/{floor_id}")
+        return await self._request("GET", f"/api/pois/floor/{floor_id}")

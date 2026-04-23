@@ -48,7 +48,7 @@ async def _fetch_with_cache(cache_key: str, fetcher) -> Dict[str, Any]:
 		raise
 
 
-@router.get("/buildings/{building_id}/floors", summary="Get Building Floors")
+@router.get("/buildings/get/{building_id}/floors", summary="Get Building Floors")
 async def get_building_floors(
 	building_id: str,
 	client: NavigationClient = Depends(get_navigation_client),
@@ -58,7 +58,7 @@ async def get_building_floors(
 	return {"data": data}
 
 
-@router.get("/floors/{floor_id}/map", summary="Get Floor Map")
+@router.get("/floors/get/{floor_id}/map", summary="Get Floor Map")
 async def get_floor_map(
 	floor_id: str,
 	client: NavigationClient = Depends(get_navigation_client),
@@ -68,7 +68,7 @@ async def get_floor_map(
 	return {"data": data}
 
 
-@router.get("/admin/pois/floor/{floor_id}", summary="Get Floor POIs")
+@router.get("/pois/floor/{floor_id}", summary="Get Floor POIs")
 async def get_floor_pois(
 	floor_id: str,
 	client: NavigationClient = Depends(get_navigation_client),

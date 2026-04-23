@@ -19,7 +19,7 @@ from app.security.auth_middleware import require_admin
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(tags=["admin"], dependencies=[Depends(require_admin)])
+router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(require_admin)])
 
 
 class AdminPayload(BaseModel):
@@ -141,7 +141,7 @@ async def rollback_graph(
 	return {"data": result}
 
 
-@router.put("/admin/pois/{poi_id}")
+@router.put("/pois/{poi_id}")
 async def update_poi(
 	poi_id: str,
 	payload: AdminPayload,

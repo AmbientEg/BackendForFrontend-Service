@@ -11,7 +11,7 @@ from app.clients.navigation_client import NavigationClient
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(tags=["navigation"])
+router = APIRouter(prefix="/navigation", tags=["navigation"])
 
 
 # -------- Request/Response Models --------
@@ -126,7 +126,7 @@ async def get_orchestrator() -> NavigationOrchestrator:
 
 
 # -------- Endpoints --------
-@router.post("/navigation/route", summary="Calculate Route")
+@router.post("/get/route", summary="Calculate Route")
 async def calculate_route(
     request: CalculateRouteRequest,
     orchestrator: NavigationOrchestrator = Depends(get_orchestrator),
