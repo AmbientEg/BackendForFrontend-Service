@@ -211,7 +211,7 @@
           "response": []
         },
         {
-          "name": "POST /api/navigation/route (lat/lng)",
+          "name": "POI TO POI",
           "event": [
             {
               "listen": "test",
@@ -290,7 +290,7 @@
           "response": []
         },
         {
-          "name": "POST /api/navigation/route (fallback predict via files, no lat/lng)",
+          "name": "PREDICT AND NAVIGATE",
           "event": [
             {
               "listen": "test",
@@ -419,7 +419,7 @@
           "response": []
         },
         {
-          "name": "POST /api/position/grid/coordinates",
+          "name": "USER POSITION GRID TO LONG / LAT",
           "event": [
             {
               "listen": "test",
@@ -462,7 +462,7 @@
           "response": []
         },
         {
-          "name": "POST /api/position/predict (JSON)",
+          "name": "PREDICT USER POSITION",
           "event": [
             {
               "listen": "test",
@@ -511,16 +511,18 @@
           "response": []
         },
         {
-          "name": "POST /api/position/predict (multipart missing file -> 400)",
+          "name": "(FAIL TEST) PREDICT USER POSITION",
           "event": [
             {
               "listen": "test",
               "script": {
-                "type": "text/javascript",
                 "exec": [
                   "pm.response.to.have.status(400);",
                   ""
-                ]
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
               }
             }
           ],
@@ -562,7 +564,7 @@
       "name": "04 - Client Map",
       "item": [
         {
-          "name": "GET /api/buildings/{buildingId}/floors",
+          "name": "GET FLOORS ON BUILDING",
           "event": [
             {
               "listen": "test",
@@ -597,7 +599,7 @@
           "response": []
         },
         {
-          "name": "GET /api/floors/{floorId}/map",
+          "name": "GET FLOOR MAP",
           "event": [
             {
               "listen": "test",
@@ -632,7 +634,7 @@
           "response": []
         },
         {
-          "name": "GET /api/admin/pois/floor/{floorId}",
+          "name": "GET ALL POIS ON FLOOR_ID",
           "request": {
             "method": "GET",
             "header": [],

@@ -15,11 +15,10 @@ from pydantic import BaseModel, ConfigDict
 from app.cache.route_cache import RouteCache
 from app.clients.nav_client_admin import NavigationAdminClient
 from app.clients.positioning_admin_client import PositioningAdminClient
-from app.security.auth_middleware import require_admin
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(require_admin)])
+router = APIRouter(prefix="/admin", tags=["admin"])
 
 
 class AdminPayload(BaseModel):
@@ -52,7 +51,7 @@ async def _get_route_cache() -> RouteCache:
 	return RouteCache(redis_client)
 
 
-@router.post("/buildings")
+@router.post("/buildings/create")
 async def create_building(
 	payload: AdminPayload,
 	client: NavigationAdminClient = Depends(get_navigation_admin_client),
@@ -60,7 +59,7 @@ async def create_building(
 	return {"data": await client.create_building(payload.model_dump(exclude_none=True))}
 
 
-@router.get("/buildings/{building_id}")
+@router.get("/buildings/get/{building_id}")
 async def get_building(
 	building_id: str,
 	client: NavigationAdminClient = Depends(get_navigation_admin_client),
@@ -68,7 +67,7 @@ async def get_building(
 	return {"data": await client.get_building(building_id)}
 
 
-@router.post("/floors")
+@router.post("/floors/create")
 async def create_floor(
 	payload: AdminPayload,
 	client: NavigationAdminClient = Depends(get_navigation_admin_client),
@@ -167,7 +166,7 @@ async def update_poi(
 	return {"data": result}
 
 
-@router.delete("/admin/pois/{poi_id}")
+@router.delete("/pois/{poi_id}")
 async def delete_poi(
 	poi_id: str,
 	client: NavigationAdminClient = Depends(get_navigation_admin_client),

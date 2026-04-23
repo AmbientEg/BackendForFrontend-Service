@@ -22,14 +22,14 @@ class NavigationAdminClient(_NavigationClientBase):
 
     # -------- Buildings --------
     async def create_building(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        return await self._request("POST", "/api/buildings", json=payload)
+        return await self._request("POST", "/api/buildings/create", json=payload)
 
     async def get_building(self, building_id: str) -> Dict[str, Any]:
-        return await self._request("GET", f"/api/buildings/{building_id}")
+        return await self._request("GET", f"/api/buildings/get/{building_id}")
 
     # -------- Floors --------
     async def create_floor(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        return await self._request("POST", "/api/floors", json=payload)
+        return await self._request("POST", "/api/floors/create", json=payload)
 
     async def update_floor(self, floor_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
         return await self._request("PUT", f"/api/floors/{floor_id}", json=payload)

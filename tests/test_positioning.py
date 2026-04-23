@@ -15,12 +15,27 @@ class DummyUploadFile:
         return self._content
 
 
-class FakePositioningClient:
-    async def grid_coordinates(self, payload):
-        return {"grid": [1, 2], "payload": payload}
+class DummyRequest:
+    def __init__(self, payload, content_type="application/json"):
+        self._payload = payload
+        self.headers = {"content-type": content_type}
 
-    async def predict(self, payload):
-        return {"lat": 30.1, "lng": 31.2, "payload": payload}
+    async def json(self):
+        return self._payload
+
+
+class FakePositioningClient:
+    def __init__(self):
+        self.predict_calls = []
+        self.grid_coordinates_calls = []
+
+    async def grid_coordinates(self, payload):
+        self.grid_coordinates_calls.append(payload)
+        return {"latitude": 30.027778981652506, "longitude": 31.201395972907505}
+
+    async def predict(self, payload, files=None):
+        self.predict_calls.append(payload)
+        return {"data": {"predicted_grid": "60", "floorId": "95278620-3149-43d6-8875-37bdeda08bca"}}
 
 
 class FakeRedisClient:
@@ -53,7 +68,27 @@ class PositioningApiTests(unittest.IsolatedAsyncioTestCase):
                 client=fake_client,
             )
 
-        self.assertEqual(result, {"data": {"grid": [1, 2], "payload": {}}})
+        self.assertEqual(
+            result,
+            {"data": {"latitude": 30.027778981652506, "longitude": 31.201395972907505}},
+        )
+
+    async def test_predict_orchestrates_grid_coordinates(self) -> None:
+        fake_client = FakePositioningClient()
+        fake_redis = FakeRedisClient()
+
+        with patch("app.main.positioning_client", fake_client), patch("app.main.redis_client", fake_redis):
+            result = await positioning_api.predict_position(
+                request=DummyRequest({"userId": "user-1", "floorId": "95278620-3149-43d6-8875-37bdeda08bca"}),
+                client=fake_client,
+            )
+
+        self.assertEqual(result["data"]["grid_label"], "60")
+        self.assertEqual(result["data"]["data"]["latitude"], 30.027778981652506)
+        self.assertEqual(result["data"]["data"]["longitude"], 31.201395972907505)
+        self.assertEqual(len(fake_client.predict_calls), 1)
+        self.assertEqual(len(fake_client.grid_coordinates_calls), 1)
+        self.assertEqual(fake_client.grid_coordinates_calls[0], {"grid_label": "60"})
 
     async def test_admin_grid_import_forwards_multipart_payload(self) -> None:
         fake_client = FakePositioningAdminClient()
@@ -75,26 +110,28 @@ class PositioningApiTests(unittest.IsolatedAsyncioTestCase):
 
         with patch("app.main.positioning_client", fake_client), patch("app.main.redis_client", fake_redis):
             result = await positioning_api.predict_position(
-                request=positioning_api.PredictRequest(userId="user-1"),
+                request=DummyRequest({"userId": "user-1"}),
                 client=fake_client,
             )
 
         self.assertEqual(result["meta"]["source"], "live")
         self.assertEqual(result["meta"]["ttlSeconds"], 1)
-        self.assertEqual(result["data"]["lat"], 30.1)
+        self.assertEqual(result["data"]["grid_label"], "60")
+        self.assertEqual(result["data"]["data"]["latitude"], 30.027778981652506)
 
     async def test_predict_uses_cache_when_available(self) -> None:
         fake_client = FakePositioningClient()
         fake_redis = FakeRedisClient()
-        fake_redis.store["position:user-1"] = "{\"lat\": 10.0, \"lng\": 20.0}"
+        fake_redis.store["position:user-1"] = "{\"floorId\": \"95278620-3149-43d6-8875-37bdeda08bca\", \"grid_label\": \"60\", \"data\": {\"latitude\": 10.0, \"longitude\": 20.0}}"
 
         with patch("app.main.positioning_client", fake_client), patch("app.main.redis_client", fake_redis):
             result = await positioning_api.predict_position(
-                request=positioning_api.PredictRequest(userId="user-1"),
+                request=DummyRequest({"userId": "user-1"}),
                 client=fake_client,
             )
 
         self.assertEqual(result["meta"]["source"], "cache")
         self.assertEqual(result["meta"]["ttlSeconds"], 1)
-        self.assertEqual(result["data"]["lat"], 10.0)
-        self.assertEqual(result["data"]["lng"], 20.0)
+        self.assertEqual(result["data"]["grid_label"], "60")
+        self.assertEqual(result["data"]["data"]["latitude"], 10.0)
+        self.assertEqual(result["data"]["data"]["longitude"], 20.0)

@@ -8,8 +8,8 @@ from typing import Any, Dict, List, Tuple
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, ConfigDict
 
-from app.cache.position_cache import PositionCache
 from app.clients.positioning_client import PositioningClient
+from app.orchestration.positioning_orchestrator import PositioningOrchestrator
 
 router = APIRouter(prefix="/position", tags=["positioning"])
 
@@ -58,11 +58,11 @@ async def grid_coordinates(
 ) -> Dict[str, Any]:
 	return {"data": await client.grid_coordinates(request.model_dump(exclude_none=True))}
 
-
 @router.post("/predict", summary="Predict Position")
 async def predict_position(
 	request: Request,
 	client: PositioningClient = Depends(get_positioning_client),
+	orchestrator=None,
 ) -> Dict[str, Any]:
 	payload: Dict[str, Any] = {}
 	multipart_files: List[Tuple[str, Tuple[str, bytes, str]]] = []
@@ -103,40 +103,16 @@ async def predict_position(
 	user_id = payload.get("userId") or payload.get("user_id")
 	floor_id = payload.get("floorId") or payload.get("floor_id")
 
-	from app.main import redis_client
-	position_cache = PositionCache(redis_client) if redis_client and user_id else None
+	if orchestrator is None:
+		from app.main import redis_client
 
-	if position_cache is not None:
-		cached_position = await position_cache.get(str(user_id))
-		if cached_position is not None:
-			cached_floor_id = cached_position.get("floorId") or cached_position.get("floor_id")
-			if floor_id is not None and cached_floor_id is not None and str(floor_id) != str(cached_floor_id):
-				await position_cache.delete(str(user_id))
-			else:
-				return {
-					"data": cached_position,
-					"meta": {
-						"source": "cache",
-						"ttlSeconds": 1,
-					},
-				}
+		orchestrator = PositioningOrchestrator(redis_client, client)
 
-	prediction = await client.predict(payload, files=multipart_files or None)
-	if floor_id is not None and isinstance(prediction, dict) and "floorId" not in prediction and "floor_id" not in prediction:
-		prediction = {
-			**prediction,
-			"floorId": floor_id,
-		}
-
-	if position_cache is not None:
-		await position_cache.set(str(user_id), prediction)
-
-	return {
-		"data": prediction,
-		"meta": {
-			"source": "live",
-			"ttlSeconds": 1,
-		},
-	}
+	return await orchestrator.resolve_position(
+		payload,
+		multipart_files=multipart_files or None,
+		user_id=str(user_id) if user_id is not None else None,
+		floor_id=str(floor_id) if floor_id is not None else None,
+	)
 
 

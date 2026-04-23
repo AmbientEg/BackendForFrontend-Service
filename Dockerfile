@@ -1,7 +1,7 @@
 # =============================================================================
 # Builder Stage
 # =============================================================================
-FROM python:3.12-slim-bookworm AS builder
+FROM python:3.10-slim-bookworm AS builder
 
 ENV PIP_NO_CACHE_DIR=1 \
     PYTHONDONTWRITEBYTECODE=1
@@ -30,7 +30,7 @@ RUN pip install --upgrade pip && \
 # =============================================================================
 # Production Stage
 # =============================================================================
-FROM python:3.12-slim-bookworm AS runtime
+FROM python:3.10-slim-bookworm AS runtime
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -52,7 +52,7 @@ RUN chown -R appuser:appuser /app
 
 USER appuser
 
-EXPOSE 8000
+EXPOSE 8003
 
 # Production command (NO reload)
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8003"]

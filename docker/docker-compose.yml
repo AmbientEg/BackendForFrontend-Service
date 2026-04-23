@@ -33,4 +33,5 @@ services:
       - "6379:6379"
 
 network:
-  
+  default:
+    name: bff-network
