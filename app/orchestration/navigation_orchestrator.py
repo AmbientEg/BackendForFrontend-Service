@@ -133,6 +133,18 @@ class NavigationOrchestrator:
             logger.info("Cache hit")
         return cached_value
 
+    @staticmethod
+    def _is_multipart_files_payload(files: Optional[List[Any]]) -> bool:
+        if not files:
+            return False
+
+        first_item = files[0]
+        if not isinstance(first_item, tuple) or len(first_item) != 2:
+            return False
+
+        field_name, file_tuple = first_item
+        return isinstance(field_name, str) and isinstance(file_tuple, tuple) and len(file_tuple) == 3
+
     async def calculate_route(
         self,
         from_building_id: str,
@@ -159,11 +171,12 @@ class NavigationOrchestrator:
 
             try:
                 logger.info("Using positioning fallback", extra={"floor_id": from_floor_id})
-                positioning_payload = {
-                    "floorId": from_floor_id,
-                    "files": from_files,
-                }
-                positioning_response = await self.positioning_client.predict(positioning_payload)
+                positioning_payload = {"floorId": from_floor_id}
+                if self._is_multipart_files_payload(from_files):
+                    positioning_response = await self.positioning_client.predict(positioning_payload, files=from_files)
+                else:
+                    positioning_payload["files"] = from_files
+                    positioning_response = await self.positioning_client.predict(positioning_payload)
                 resolved_lat, resolved_lng = await self._resolve_positioning_coordinates(positioning_response)
                 used_positioning = True
 

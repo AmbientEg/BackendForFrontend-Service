@@ -17,7 +17,6 @@
             {
               "listen": "test",
               "script": {
-                "type": "text/javascript",
                 "exec": [
                   "pm.response.to.have.status(200);",
                   "const body = pm.response.json();",
@@ -26,7 +25,10 @@
                   "  pm.expect(body).to.have.property('version');",
                   "});",
                   ""
-                ]
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
               }
             }
           ],
@@ -191,26 +193,6 @@
           "response": []
         },
         {
-          "name": "GET /api/health/live",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/navigation/health/live",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "navigation",
-                "health",
-                "live"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
           "name": "POI TO POI",
           "event": [
             {
@@ -243,7 +225,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"from\": {\n    \"userId\": \"{{userId}}\",\n    \"buildingId\": \"{{buildingId}}\",\n    \"floorId\": \"{{floorId}}\",\n    \"lat\": {{lat}},\n    \"lng\": {{lng}}\n  },\n  \"to\": {\n    \"poiId\": \"{{poiId}}\"\n  },\n  \"options\": {\n    \"accessible\": false\n  }\n}"
+              "raw": "{\n  \"from\": {\n    \"userId\": \"{{userId}}\",\n    \"buildingId\": \"414184b1-4830-41b6-b8c8-ccd38bc61d00\",\n    \"floorId\": \"f5bb8f0d-ea83-4f30-864c-8d3c738f36f5\",\n    \"lat\": 30.02771092227816,\n    \"lng\": 31.201406546960303\n  },\n  \"to\": {\n    \"poiId\": \"d8af6936-52b9-4b28-84de-8337720306b4\"\n  },\n  \"options\": {\n    \"accessible\": false\n  }\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/navigation/get/route",
@@ -319,6 +301,98 @@
             "body": {
               "mode": "raw",
               "raw": "{\n  \"from\": {\n    \"userId\": \"{{userId}}\",\n    \"buildingId\": \"{{buildingId}}\",\n    \"floorId\": \"{{floorId}}\",\n    \"files\": [\n      \"/Users/rodynaamr/positioning-service/postman/samples/beacon-1.csv\",\n      \"/Users/rodynaamr/positioning-service/postman/samples/beacon-2.csv\",\n      \"/Users/rodynaamr/positioning-service/postman/samples/beacon-3.csv\",\n      \"/Users/rodynaamr/positioning-service/postman/samples/beacon-4.csv\",\n      \"/Users/rodynaamr/positioning-service/postman/samples/beacon-5.csv\"\n    ]\n  },\n  \"to\": {\n    \"poiId\": \"{{poiId}}\"\n  },\n  \"options\": {\n    \"accessible\": false\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/navigation/get/route",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "navigation",
+                "get",
+                "route"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "PREDICT AND NAVIGATE (multipart files) Copy",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.expect(pm.response.code).to.be.oneOf([200, 400, 503, 504]);",
+                  "pm.test('Fallback route request should not fail validation (422)', function () {",
+                  "  pm.expect(pm.response.code).to.not.equal(422);",
+                  "});",
+                  ""
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "userId",
+                  "value": "{{userId}}",
+                  "type": "text"
+                },
+                {
+                  "key": "buildingId",
+                  "value": "{{buildingId}}",
+                  "type": "text"
+                },
+                {
+                  "key": "floorId",
+                  "value": "{{floorId}}",
+                  "type": "text"
+                },
+                {
+                  "key": "poiId",
+                  "value": "{{poiId}}",
+                  "type": "text"
+                },
+                {
+                  "key": "accessible",
+                  "value": "false",
+                  "type": "text"
+                },
+                {
+                  "key": "files",
+                  "type": "file",
+                  "src": "/Users/rodynaamr/positioning-service/postman/samples/beacon-1.csv"
+                },
+                {
+                  "key": "files",
+                  "type": "file",
+                  "src": "/Users/rodynaamr/positioning-service/postman/samples/beacon-2.csv"
+                },
+                {
+                  "key": "files",
+                  "type": "file",
+                  "src": "/Users/rodynaamr/positioning-service/postman/samples/beacon-3.csv"
+                },
+                {
+                  "key": "files",
+                  "type": "file",
+                  "src": "/Users/rodynaamr/positioning-service/postman/samples/beacon-4.csv"
+                },
+                {
+                  "key": "files",
+                  "type": "file",
+                  "src": "/Users/rodynaamr/positioning-service/postman/samples/beacon-5.csv"
+                }
+              ]
             },
             "url": {
               "raw": "{{baseUrl}}/api/navigation/get/route",
@@ -419,49 +493,6 @@
           "response": []
         },
         {
-          "name": "USER POSITION GRID TO LONG / LAT",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "pm.expect(pm.response.code).to.be.oneOf([200, 503, 504]);",
-                  ""
-                ],
-                "type": "text/javascript",
-                "packages": {},
-                "requests": {}
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"grid_label\": \"60\"\n}"
-            },
-            "url": {
-              "raw": "{{baseUrl}}/api/position/grid/coordinates",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "position",
-                "grid",
-                "coordinates"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
           "name": "PREDICT USER POSITION",
           "event": [
             {
@@ -541,6 +572,86 @@
                   "key": "floorId",
                   "value": "{{floorId}}",
                   "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/position/predict",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "position",
+                "predict"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "PREDICT USER POSITION (multipart files) Copy",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.expect(pm.response.code).to.be.oneOf([200, 400, 503, 504]);",
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  pm.test('Predict response has data/meta', function () {",
+                  "    pm.expect(body).to.have.property('data');",
+                  "    pm.expect(body).to.have.property('meta');",
+                  "  });",
+                  "}",
+                  ""
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "userId",
+                  "value": "{{userId}}",
+                  "type": "text"
+                },
+                {
+                  "key": "floorId",
+                  "value": "{{floorId}}",
+                  "type": "text"
+                },
+                {
+                  "key": "files",
+                  "type": "file",
+                  "src": "/Users/rodynaamr/positioning-service/postman/samples/beacon-1.csv"
+                },
+                {
+                  "key": "files",
+                  "type": "file",
+                  "src": "/Users/rodynaamr/positioning-service/postman/samples/beacon-2.csv"
+                },
+                {
+                  "key": "files",
+                  "type": "file",
+                  "src": "/Users/rodynaamr/positioning-service/postman/samples/beacon-3.csv"
+                },
+                {
+                  "key": "files",
+                  "type": "file",
+                  "src": "/Users/rodynaamr/positioning-service/postman/samples/beacon-4.csv"
+                },
+                {
+                  "key": "files",
+                  "type": "file",
+                  "src": "/Users/rodynaamr/positioning-service/postman/samples/beacon-5.csv"
                 }
               ]
             },

@@ -5,7 +5,7 @@ floor map data, and floor POIs.
 """
 
 import json
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -26,6 +26,31 @@ async def get_navigation_client() -> NavigationClient:
 
 def _cache_key(prefix: str, item_id: str) -> str:
 	return f"client-map:{prefix}:{item_id}"
+
+
+def _to_floor_list(payload: Any) -> List[Dict[str, Any]]:
+	if isinstance(payload, list):
+		return [item for item in payload if isinstance(item, dict)]
+
+	if isinstance(payload, dict):
+		for key in ("floors", "data", "items", "results"):
+			value = payload.get(key)
+			if isinstance(value, list):
+				return [item for item in value if isinstance(item, dict)]
+
+	return []
+
+
+def _project_floor(floor_obj: Dict[str, Any]) -> Dict[str, Any]:
+	building_id = floor_obj.get("building_id") or floor_obj.get("buildingId")
+	level_number = floor_obj.get("level_number") or floor_obj.get("levelNumber")
+
+	return {
+		"id": floor_obj.get("id"),
+		"building_id": building_id,
+		"level_number": level_number,
+		"name": floor_obj.get("name"),
+	}
 
 
 async def _fetch_with_cache(cache_key: str, fetcher) -> Dict[str, Any]:
@@ -55,7 +80,8 @@ async def get_building_floors(
 ) -> Dict[str, Any]:
 	cache_key = _cache_key("building-floors", building_id)
 	data = await _fetch_with_cache(cache_key, lambda: client.get_building_floors(building_id))
-	return {"data": data}
+	floors = _to_floor_list(data)
+	return {"data": [_project_floor(floor_obj) for floor_obj in floors]}
 
 
 @router.get("/floors/get/{floor_id}/map", summary="Get Floor Map")

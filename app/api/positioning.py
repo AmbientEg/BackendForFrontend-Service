@@ -51,13 +51,6 @@ async def positioning_readiness(client: PositioningClient = Depends(get_position
 	return {"data": await client.readiness()}
 
 
-@router.post("/grid/coordinates", summary="Resolve Grid Coordinates")
-async def grid_coordinates(
-	request: GridCoordinatesRequest,
-	client: PositioningClient = Depends(get_positioning_client),
-) -> Dict[str, Any]:
-	return {"data": await client.grid_coordinates(request.model_dump(exclude_none=True))}
-
 @router.post("/predict", summary="Predict Position")
 async def predict_position(
 	request: Request,
