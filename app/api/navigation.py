@@ -1,9 +1,10 @@
 """Navigation API endpoints."""
 
+import json
 import logging
 from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from pydantic import BaseModel, Field
 
 from app.orchestration.navigation_orchestrator import NavigationOrchestrator
@@ -128,13 +129,95 @@ async def get_orchestrator() -> NavigationOrchestrator:
 # -------- Endpoints --------
 @router.post("/get/route", summary="Calculate Route")
 async def calculate_route(
-    request: CalculateRouteRequest,
+    request: Request,
     orchestrator: NavigationOrchestrator = Depends(get_orchestrator),
 ) -> CalculateRouteResponse:
     try:
-        from_loc = request.from_location
-        to_loc = request.to_location
-        opts = request.options or RouteOptionsModel()
+        payload_data: Dict[str, Any]
+        multipart_files = None
+
+        content_type = request.headers.get("content-type", "")
+        if content_type.startswith("multipart/form-data"):
+            form_data = await request.form()
+            from_payload: Dict[str, Any] = {}
+            to_payload: Dict[str, Any] = {}
+            options_payload: Dict[str, Any] = {}
+
+            if "from" in form_data:
+                raw_from = form_data.get("from")
+                if isinstance(raw_from, str):
+                    parsed_from = json.loads(raw_from)
+                    if isinstance(parsed_from, dict):
+                        from_payload = parsed_from
+
+            if "to" in form_data:
+                raw_to = form_data.get("to")
+                if isinstance(raw_to, str):
+                    parsed_to = json.loads(raw_to)
+                    if isinstance(parsed_to, dict):
+                        to_payload = parsed_to
+
+            if "options" in form_data:
+                raw_options = form_data.get("options")
+                if isinstance(raw_options, str):
+                    parsed_options = json.loads(raw_options)
+                    if isinstance(parsed_options, dict):
+                        options_payload = parsed_options
+
+            if not from_payload:
+                from_payload = {
+                    "userId": form_data.get("userId"),
+                    "buildingId": form_data.get("buildingId"),
+                    "floorId": form_data.get("floorId"),
+                    "lat": form_data.get("lat"),
+                    "lng": form_data.get("lng"),
+                }
+
+            if not to_payload:
+                to_payload = {
+                    "poiId": form_data.get("poiId") or form_data.get("toPoiId"),
+                }
+
+            if not options_payload and "accessible" in form_data:
+                raw_accessible = str(form_data.get("accessible")).strip().lower()
+                options_payload = {"accessible": raw_accessible in {"1", "true", "yes", "on"}}
+
+            payload_data = {
+                "from": from_payload,
+                "to": to_payload,
+                "options": options_payload or None,
+            }
+
+            upload_files = form_data.getlist("files")
+            built_multipart_files = []
+            for file_obj in upload_files:
+                if not (hasattr(file_obj, "filename") and hasattr(file_obj, "read")):
+                    continue
+                content = await file_obj.read()
+                built_multipart_files.append(
+                    (
+                        "files",
+                        (
+                            file_obj.filename or "beacon.csv",
+                            content,
+                            file_obj.content_type or "application/octet-stream",
+                        ),
+                    )
+                )
+
+            multipart_files = built_multipart_files or None
+        else:
+            json_payload = await request.json()
+            if not isinstance(json_payload, dict):
+                raise HTTPException(status_code=400, detail="Invalid JSON payload")
+            payload_data = json_payload
+
+        parsed_request = CalculateRouteRequest.model_validate(payload_data)
+        from_loc = parsed_request.from_location
+        to_loc = parsed_request.to_location
+        opts = parsed_request.options or RouteOptionsModel()
+
+        effective_files = multipart_files or from_loc.files
 
         response = await orchestrator.calculate_route(
             from_building_id=from_loc.building_id,
@@ -143,7 +226,7 @@ async def calculate_route(
             user_id=from_loc.user_id,
             from_lat=from_loc.lat,
             from_lng=from_loc.lng,
-            from_files=from_loc.files,
+            from_files=effective_files,
             accessible=opts.accessible,
         )
 
@@ -157,7 +240,7 @@ async def calculate_route(
 
         return CalculateRouteResponse(**response)
 
-    except ValueError as e:
+    except (ValueError, json.JSONDecodeError) as e:
         logger.warning(f"Invalid route request: {e}")
         raise HTTPException(status_code=400, detail=str(e))
 

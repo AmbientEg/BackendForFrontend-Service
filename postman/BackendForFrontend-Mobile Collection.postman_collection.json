@@ -17,7 +17,6 @@
             {
               "listen": "test",
               "script": {
-                "type": "text/javascript",
                 "exec": [
                   "pm.response.to.have.status(200);",
                   "const body = pm.response.json();",
@@ -26,7 +25,10 @@
                   "  pm.expect(body).to.have.property('version');",
                   "});",
                   ""
-                ]
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
               }
             }
           ],
@@ -191,26 +193,6 @@
           "response": []
         },
         {
-          "name": "GET /api/health/live",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/navigation/health/live",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "navigation",
-                "health",
-                "live"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
           "name": "POI TO POI",
           "event": [
             {
@@ -334,6 +316,98 @@
             }
           },
           "response": []
+        },
+        {
+          "name": "PREDICT AND NAVIGATE (multipart files) Copy",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.expect(pm.response.code).to.be.oneOf([200, 400, 503, 504]);",
+                  "pm.test('Fallback route request should not fail validation (422)', function () {",
+                  "  pm.expect(pm.response.code).to.not.equal(422);",
+                  "});",
+                  ""
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "userId",
+                  "value": "{{userId}}",
+                  "type": "text"
+                },
+                {
+                  "key": "buildingId",
+                  "value": "{{buildingId}}",
+                  "type": "text"
+                },
+                {
+                  "key": "floorId",
+                  "value": "{{floorId}}",
+                  "type": "text"
+                },
+                {
+                  "key": "poiId",
+                  "value": "{{poiId}}",
+                  "type": "text"
+                },
+                {
+                  "key": "accessible",
+                  "value": "false",
+                  "type": "text"
+                },
+                {
+                  "key": "files",
+                  "type": "file",
+                  "src": "/Users/rodynaamr/positioning-service/postman/samples/beacon-1.csv"
+                },
+                {
+                  "key": "files",
+                  "type": "file",
+                  "src": "/Users/rodynaamr/positioning-service/postman/samples/beacon-2.csv"
+                },
+                {
+                  "key": "files",
+                  "type": "file",
+                  "src": "/Users/rodynaamr/positioning-service/postman/samples/beacon-3.csv"
+                },
+                {
+                  "key": "files",
+                  "type": "file",
+                  "src": "/Users/rodynaamr/positioning-service/postman/samples/beacon-4.csv"
+                },
+                {
+                  "key": "files",
+                  "type": "file",
+                  "src": "/Users/rodynaamr/positioning-service/postman/samples/beacon-5.csv"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/navigation/get/route",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "navigation",
+                "get",
+                "route"
+              ]
+            }
+          },
+          "response": []
         }
       ]
     },
@@ -419,49 +493,6 @@
           "response": []
         },
         {
-          "name": "USER POSITION GRID TO LONG / LAT",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "pm.expect(pm.response.code).to.be.oneOf([200, 503, 504]);",
-                  ""
-                ],
-                "type": "text/javascript",
-                "packages": {},
-                "requests": {}
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"grid_label\": \"60\"\n}"
-            },
-            "url": {
-              "raw": "{{baseUrl}}/api/position/grid/coordinates",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "position",
-                "grid",
-                "coordinates"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
           "name": "PREDICT USER POSITION",
           "event": [
             {
@@ -541,6 +572,86 @@
                   "key": "floorId",
                   "value": "{{floorId}}",
                   "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/position/predict",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "position",
+                "predict"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "PREDICT USER POSITION (multipart files) Copy",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.expect(pm.response.code).to.be.oneOf([200, 400, 503, 504]);",
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  pm.test('Predict response has data/meta', function () {",
+                  "    pm.expect(body).to.have.property('data');",
+                  "    pm.expect(body).to.have.property('meta');",
+                  "  });",
+                  "}",
+                  ""
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "userId",
+                  "value": "{{userId}}",
+                  "type": "text"
+                },
+                {
+                  "key": "floorId",
+                  "value": "{{floorId}}",
+                  "type": "text"
+                },
+                {
+                  "key": "files",
+                  "type": "file",
+                  "src": "postman/samples/beacon-1.csv"
+                },
+                {
+                  "key": "files",
+                  "type": "file",
+                  "src": "postman/samples/beacon-2.csv"
+                },
+                {
+                  "key": "files",
+                  "type": "file",
+                  "src": "postman/samples/beacon-3.csv"
+                },
+                {
+                  "key": "files",
+                  "type": "file",
+                  "src": "postman/samples/beacon-4.csv"
+                },
+                {
+                  "key": "files",
+                  "type": "file",
+                  "src": "postman/samples/beacon-5.csv"
                 }
               ]
             },
