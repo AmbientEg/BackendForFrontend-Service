@@ -1,1 +1,53 @@
-/bff/
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pyre/
+.nox/
+.tox/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+bff/
+
+# Packaging and build outputs
+build/
+dist/
+site/
+htmlcov/
+*.egg-info/
+*.egg
+pip-wheel-metadata/
+
+# Coverage and test artifacts
+.coverage
+.coverage.*
+coverage.xml
+pytestdebug.log
+
+# Local configuration and secrets
+.env
+.env.*
+*.local
+
+# Logs
+*.log
+logs/
+
+# Editor and OS files
+.DS_Store
+.idea/
+.vscode/
+
+# Miscellaneous
+*.sqlite3
+*.db
+docker-compose.override.yml

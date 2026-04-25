@@ -1,442 +1,139 @@
-# 🧠 BFF FULL DESIGN PLAN (Production Grade – Navigation System)
+# Backend For Frontend Service
 
-A BFF is basically a **facade layer over microservices**, but in real systems it becomes:
+Version 1 of the Backend For Frontend service for the indoor navigation stack. This service sits in front of the navigation and positioning APIs, shapes responses for mobile clients, adds resilience, and uses Redis-backed caching for the flows that need it most.
 
-> a real-time orchestration + optimization + resilience layer between clients and backend services
+## What this service does
 
-It is NOT just a proxy.
+- Proxies and orchestrates requests to the downstream navigation and positioning services.
+- Exposes mobile-focused read endpoints for floor maps and POIs.
+- Caches expensive or fast-changing data such as routes, floor maps, and position lookups.
+- Applies resilience policies around downstream HTTP calls.
+- Adds request tracing, structured error responses, CORS, and optional trusted-host enforcement.
 
-It is:
+## Repository layout
 
-* orchestration engine
-* response optimizer
-* cache brain
-* failure shield
-* traffic controller
+- `app/main.py` creates the FastAPI app, wires middleware, and initializes shared clients.
+- `app/api/navigation.py` exposes route calculation and navigation health endpoints.
+- `app/api/positioning.py` exposes positioning health and prediction endpoints.
+- `app/api/admin.py` forwards admin operations for buildings, floors, graphs, POIs, and grid import.
+- `app/api/client_map.py` serves mobile map reads for floors, floor maps, and POIs.
+- `app/clients/` contains the downstream HTTP clients.
+- `app/orchestration/` contains the orchestration logic.
+- `app/cache/` contains Redis access and route/position cache helpers.
+- `tests/` contains the current automated test suite.
 
----
+## Runtime behavior
 
-# 1. CORE BFF ARCHITECTURE
+- FastAPI app title: `Backend For Frontend (BFF) API`
+- Default app version: `1.0.0`
+- Default server host: `0.0.0.0`
+- Default server port: `8003`
+- Production mode disables the interactive docs and enables trusted-host checks when configured.
+- Requests include an `X-Correlation-ID` header if provided, or a generated request ID otherwise.
 
-## 1. Orchestrator (MOST IMPORTANT)
+## Environment variables
 
-It coordinates multiple services into one user-facing response.
+The service reads the following variables:
 
-This is the “brain” of the BFF.
+- `ENV` or `ENVIRONMENT` - set to `production` to enable production-only behavior.
+- `LOG_LEVEL` - logging level, default `INFO`.
+- `REDIS_URL` - Redis connection string, default `redis://localhost:6379/0`.
+- `NAVIGATION_SERVICE_URL` - navigation service base URL, default `http://navigation-service:8000`.
+- `POSITIONING_SERVICE_URL` - positioning service base URL, default `http://positioning-service:8000`.
+- `ALLOWED_HOSTS` - comma-separated host list for trusted-host middleware.
+- `CORS_ORIGINS` - comma-separated allowed CORS origins.
+- `HOST` - host used by the `__main__` launcher, default `0.0.0.0`.
+- `PORT` - port used by the `__main__` launcher, default `8003`.
 
-Example flow:
+## Local development
 
-```python
-async def get_route(user_id, destination):
-    position = await positioning.get_current_location(user_id)
-    route = await navigation.calculate_route(position, destination)
-    return format_route(route)
+Install dependencies from `requirements.txt`, then run the app from the repository root:
+
+```bash
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8003 --reload
 ```
 
-BUT production version is smarter:
+If you prefer the module entrypoint, the app also supports direct execution through `python app/main.py`.
 
-```python
-async def get_route(user_id, destination):
-    cache_key = f"route:{user_id}:{destination}"
+## Docker
 
-    cached = await redis.get(cache_key)
-    if cached:
-        return cached
+The repository includes two Docker-related entrypoints:
 
-    position = await positioning.get_current_location(user_id)
-    route = await navigation.calculate_route(position, destination)
+- `Dockerfile` builds the BFF image from the repository root.
+- `docker/docker-compose.yml` starts the BFF together with Redis, navigation, and positioning containers.
 
-    response = adapter.transform(route)
+Compose expects environment files next to it:
 
-    await redis.set(cache_key, response, ttl=900)
-    return response
+- `docker/bff.env`
+- `docker/navigation.env`
+- `docker/positioning.env`
+
+To run the stack with Docker Compose, use the compose file under `docker/` and expose the BFF on host port `8003`.
+
+## API surface
+
+### App-level endpoints
+
+- `GET /` - service status and docs link in non-production mode.
+- `GET /health` - liveness-style health check for the API process.
+- `GET /api/status` - lightweight operational status endpoint.
+
+### Navigation endpoints
+
+- `GET /api/navigation/` - navigation service root proxy.
+- `GET /api/navigation/health` - navigation health proxy.
+- `GET /api/navigation/health/ready` - navigation readiness proxy.
+- `GET /api/navigation/health/live` - navigation liveness proxy.
+- `GET /api/navigation/status` - navigation status proxy.
+- `POST /api/navigation/get/route` - calculate a route, including multipart uploads when needed.
+
+### Positioning endpoints
+
+- `GET /api/position/` - positioning service root proxy.
+- `GET /api/position/health` - positioning health proxy.
+- `GET /api/position/health/live` - positioning liveness proxy.
+- `GET /api/position/health/ready` - positioning readiness proxy.
+- `POST /api/position/predict` - predict positioning from JSON or multipart form data.
+
+### Admin endpoints
+
+- `POST /api/admin/buildings/create`
+- `GET /api/admin/buildings/get/{building_id}`
+- `GET /api/admin/buildings/get/{building_id}/floors`
+- `POST /api/admin/floors/create`
+- `PUT /api/admin/floors/{floor_id}`
+- `POST /api/admin/graphs/rebuild/{building_id}`
+- `POST /api/admin/graphs/confirm/{building_id}`
+- `POST /api/admin/graphs/rollback/{building_id}`
+- `PUT /api/admin/pois/{poi_id}`
+- `DELETE /api/admin/pois/{poi_id}`
+- `POST /api/admin/position/grid/import`
+
+### Mobile map endpoints
+
+- `GET /api/buildings/get/{building_id}/floors`
+- `GET /api/floors/get/{floor_id}/map`
+- `GET /api/pois/floor/{floor_id}`
+
+## Caching and resilience
+
+- Route responses can be cached in Redis through the route cache helpers.
+- Floor map and floor POI reads use short-lived Redis cache entries.
+- Positioning flows can fall back to cached data when the live service is unavailable.
+- Downstream clients use resilience policies and normalized error handling for HTTP failures.
+
+## Testing
+
+Run the test suite from the repository root:
+
+```bash
+pytest
 ```
 
----
+The current tests cover positioning orchestration, admin multipart forwarding, downstream client health paths, and resilience-related behavior.
 
-## 2. Aggregator
+## Notes for contributors
 
-Combines multiple responses into a single clean payload.
-
-Used when:
-
-* navigation + position + user preferences + accessibility
-
-Example:
-
-```python
-route, profile, position = await gather(
-    navigation.get_route(...),
-    user.get_profile(...),
-    positioning.get_current(...)
-)
-
-return {
-    "route": route,
-    "userPreferences": profile,
-    "position": position
-}
-```
-
----
-
-## 3. Adapter (VERY IMPORTANT for mobile)
-
-Transforms backend data → mobile-friendly format.
-
-### Navigation service returns:
-
-```json
-{
-  "nodes": [...],
-  "edges": [...],
-  "cost": 123.45
-}
-```
-
-### BFF returns (Mapbox-like / mobile optimized):
-
-```json
-{
-  "distance_meters": 18.75,
-  "steps": [
-    "Head north-east",
-    "Turn left",
-    "Arrive at destination"
-  ],
-  "polyline": [
-    [31.2014, 30.0277],
-    [31.2015, 30.0278]
-  ]
-}
-```
-
-👉 BFF is responsible for:
-
-* simplifying graphs
-* converting coordinates
-* reducing payload size
-* removing backend noise
-
----
-
-## 4. CACHE LAYER (SMART REDIS DESIGN)
-
-Redis is NOT just caching.
-It is your **performance backbone**
-
-### What to cache (CRITICAL)
-
-#### 1. Routes (HIGHEST VALUE)
-
-```
-route:{floor}:{from}:{to}:{accessible}
-```
-
-TTL: 5–30 min
-
-Why:
-
-* expensive computation
-* high reuse
-* stable short-term paths
-
----
-
-#### 2. Position (VERY SHORT TTL)
-
-```
-position:{user_id}
-```
-
-TTL: 1–5 seconds
-
-Why:
-
-* real-time movement
-* fast-changing data
-
----
-
-#### 3. Graph snapshots
-
-```
-graph:{building_id}
-```
-
-TTL: infinite until update
-
-Why:
-
-* rarely changes
-* expensive to rebuild
-
----
-
-#### 4. Navigation preview (optional)
-
-Used for UI preloading
-
----
-
-## Cache invalidation rules (VERY IMPORTANT)
-
-Invalidate when:
-
-* graph changes (/graphs/confirm)
-* POIs updated
-* user changes floor
-* admin rebuilds routing graph
-
----
-
-# 5. AUTH GATEWAY (ADMIN ONLY)
-
-Since:
-
-* Navigation has CRUD
-* Positioning has config APIs
-
-BFF enforces security layer:
-
-```python
-def require_admin(user):
-    if user.role != "admin":
-        raise Unauthorized
-```
-
-Flow:
-
-```
-Admin → BFF → JWT validation → Service
-```
-
-Protected APIs:
-
-* create buildings
-* update floors
-* rebuild graphs
-* confirm graphs
-* modify POIs
-
----
-
-# 6. FAILURE HANDLING (CRITICAL REAL-WORLD DESIGN)
-
-## Case 1: Navigation service fails
-
-BFF behavior:
-
-1. try service
-2. fallback to cache
-3. degrade response
-
-```python
-try:
-    route = await navigation.get_route(...)
-except NavigationServiceDown:
-    route = await redis.get(cache_key)
-
-    if route:
-        return route
-
-    raise HTTPException(503, "Route unavailable")
-```
-
----
-
-## Case 2: Positioning fails (CRITICAL SYSTEM)
-
-Options:
-
-### Option A (BEST)
-
-Use last known position:
-
-```
-position:{user_id}
-```
-
-### Option B
-
-Ask user to retry
-
----
-
-## Case 3: Partial failure (BEST UX)
-
-Never fully fail the system.
-
-```json
-{
-  "route": [...],
-  "warning": "position may be outdated"
-}
-```
-
----
-
-# 7. CIRCUIT BREAKER (PYRESILIENCE STYLE)
-
-If service keeps failing:
-
-### CLOSED
-
-Normal flow
-
-### OPEN
-
-Stop calling service entirely
-
-### HALF-OPEN
-
-Test if service recovered
-
----
-
-### Why it matters
-
-Prevents:
-
-* thread exhaustion
-* cascading failure
-* API meltdown
-* retry storms
-
-Example behavior:
-
-```
-Navigation failing → OPEN circuit → no calls sent → instant fallback
-```
-
----
-
-# 8. BULKHEAD PATTERN (LOAD ISOLATION)
-
-Your insight is correct:
-
-> admin should NOT be blocked by navigation load
-
-So we isolate execution:
-
-### Navigation pool
-
-* high traffic
-* lower priority
-
-### Admin pool
-
-* low traffic
-* high priority
-
-```python
-nav_semaphore = asyncio.Semaphore(100)
-admin_semaphore = asyncio.Semaphore(20)
-```
-
-OR thread pools:
-
-```
-navigation_executor = ThreadPool(max_workers=50)
-admin_executor = ThreadPool(max_workers=10)
-```
-
----
-
-# 9. PARALLEL EXECUTION (OPTIMIZATION CORE)
-
-Instead of sequential calls:
-
-```python
-position_task = positioning.get_position(user)
-profile_task = get_user_preferences(user)
-
-position, profile = await gather(position_task, profile_task)
-```
-
-👉 reduces latency drastically
-
----
-
-# 10. TIMEOUT + FALLBACK STRATEGY
-
-Never wait forever.
-
-```python
-try:
-    route = await asyncio.wait_for(
-        navigation.get_route(...),
-        timeout=2.0
-    )
-except TimeoutError:
-    route = await redis.get(cache_key)
-```
-
----
-
-# 11. FINAL BFF REQUEST FLOW (PRODUCTION PIPELINE)
-
-This is your real system flow:
-
-1. Check circuit breaker (navigation)
-2. Check Redis cache
-3. Acquire bulkhead slot
-4. Fetch position
-5. Call navigation service
-6. Transform response (adapter)
-7. Cache result
-8. Return response
-
----
-
-# 12. WHAT YOUR BFF ACTUALLY IS
-
-You are NOT building:
-
-❌ “a backend that calls microservices”
-
-You ARE building:
-
-🧠 a real-time decision engine that:
-
-* merges services
-* optimizes payloads
-* protects system from failure
-* manages traffic pressure
-* controls latency
-* ensures mobile UX is smooth
-
----
-
-# 13. FINAL MINDSET SHIFT (IMPORTANT)
-
-Your system is:
-
-> a live indoor navigation intelligence layer
-
-It does:
-
-* routing logic
-* failure recovery
-* caching intelligence
-* request shaping
-* system protection
-* load balancing
-
-ARCHITECTURE FLOW
-When request hits:
-API Layer
-   ↓
-Orchestrator
-   ↓
-Cache Check
-   ↓
-Resilience Check (CB + Bulkhead)
-   ↓
-Clients (microservices)
-   ↓
-Adapters (format response)
-   ↓
-Cache Store
-   ↓
-Return Mobile Response
+- Keep `.env` values and local machine state out of version control.
+- Prefer small, focused changes in `app/` when adjusting endpoint behavior.
+- Update this README when new routes, environment variables, or runtime entrypoints are added.
