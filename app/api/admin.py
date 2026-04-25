@@ -67,6 +67,14 @@ async def get_building(
 	return {"data": await client.get_building(building_id)}
 
 
+@router.get("/buildings/get/{building_id}/floors")
+async def get_building_floors(
+	building_id: str,
+	client: NavigationAdminClient = Depends(get_navigation_admin_client),
+) -> Dict[str, Any]:
+	return {"data": await client.get_building_floors(building_id)}
+
+
 @router.post("/floors/create")
 async def create_floor(
 	payload: AdminPayload,

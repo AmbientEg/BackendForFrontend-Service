@@ -27,6 +27,9 @@ class NavigationAdminClient(_NavigationClientBase):
     async def get_building(self, building_id: str) -> Dict[str, Any]:
         return await self._request("GET", f"/api/buildings/get/{building_id}")
 
+    async def get_building_floors(self, building_id: str) -> Dict[str, Any]:
+        return await self._request("GET", f"/api/buildings/get/{building_id}/floors")
+
     # -------- Floors --------
     async def create_floor(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         return await self._request("POST", "/api/floors/create", json=payload)
